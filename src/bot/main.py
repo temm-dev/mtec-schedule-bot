@@ -11,6 +11,7 @@ from services.database import DatabaseHashes, DatabaseUsers
 from services.schedule_checker_service import ScheduleChecker
 from services.schedule_service import ScheduleService
 
+
 coloredlogs.install(level="INFO", fmt="%(asctime)s - %(levelname)s - %(message)s")
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ with open(f"{WORKSPACE}current_date.txt", "w") as file:
 
 async def main():
     container._bot = Bot(token=TOKEN)
-    container._db_users = DatabaseUsers(f"{PATH_DBs}dbname.db")
+    container._db_users = DatabaseUsers(f"{PATH_DBs}DB.db")
     container._db_hashes = DatabaseHashes(f"{PATH_DBs}schedule_hashes.db")
 
     from core.handlers import setup_handlers
@@ -36,8 +37,8 @@ async def main():
     setup_handlers(dp)
 
     print("START CHECK SCHEDULE 🤖")
-    checker = ScheduleChecker(container.bot, container.db_users, container.db_hashes)
-    asyncio.create_task(checker.check_schedule())
+    schedule_checker = ScheduleChecker(container.bot, container.db_users, container.db_hashes)
+    asyncio.create_task(schedule_checker.run_schedule_check())
 
     print("START HANDLERS 🤖")
     await dp.start_polling(container.bot)
