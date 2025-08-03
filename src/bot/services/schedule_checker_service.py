@@ -17,25 +17,25 @@ from utils.log import print_sent
 
 
 class ScheduleChecker:
-    """Класс для отслеживания появления и изменения расписания"""
+    """A class for tracking schedule appearances and changes"""
 
     SLEEP_NIGHT = 3600
     SLEEP_DAY = 60
     NIGHT_HOURS = (22, 23, 0, 1, 2, 3, 4, 5, 6, 7)
 
     def __init__(self, bot, db_users, db_hashes):
-        """Инициализация необходимых зависимостей"""
+        """Initializing necessary dependencies"""
         self.bot = bot
         self.db_users = db_users
         self.db_hashes = db_hashes
         self.schedule_service = ScheduleService()
 
     async def is_night_time(self) -> bool:
-        """Метод для получения текущего часа"""
+        """A method for checking whether the current hour is night"""
         return datetime.now().hour in self.NIGHT_HOURS
 
     async def run_schedule_check(self) -> None:
-        """Метод для запуска отслеживания появления и изменения расписания"""
+        """A method to start tracking the appearance and schedule changes"""
         print("Проверка расписания запущена ✅ 🔄")
         iteration = 1
         try:
@@ -56,7 +56,7 @@ class ScheduleChecker:
             await asyncio.sleep(3)
     
     async def process_schedule_updates(self) -> None:
-        """Метод для обработки расписания"""
+        """A method for schedule processing"""
         actual_dates = await self.schedule_service.get_dates_schedule()
 
         with open(f"{WORKSPACE}current_date.txt", "r") as file:
@@ -82,7 +82,7 @@ class ScheduleChecker:
         await self.check_schedule_change(groups_schedule)
 
     async def handle_new_schedules(self, new_dates: list[str], actual_dates: list[str]) -> None:
-        """Метод для обработки появившегося расписания"""
+        """A method for processing the schedule that appears"""
         groups_schedule = await self.get_all_schedule(new_dates) # Получение расписания для каждой группы
         await self.check_schedule_change(groups_schedule) # Добавление хешей расписания в базу данных
 
@@ -101,7 +101,7 @@ class ScheduleChecker:
     async def check_schedule_change(
         self, groups_schedule: dict[str, list[list]]
     ) -> None:
-        """Метод для отслеживания изменения расписания"""
+        """A method for tracking schedule changes"""
         try:
             for group_date, schedule in groups_schedule.items():
                 data = group_date.split(" ")
@@ -125,7 +125,7 @@ class ScheduleChecker:
             await asyncio.sleep(3)
 
     async def safe_send_photo(self, user_id: int, photo, updated: bool):
-        """Метод для отправки фото расписания"""
+        """Method for sending schedule photos"""
         try:
             if updated:
                 await self.bot.send_photo(
@@ -138,7 +138,7 @@ class ScheduleChecker:
             print(f"Ошибка send_photo для {user_id}")
 
     async def get_all_schedule(self, dates: list[str]) -> dict[str, list[list]]:
-        """Метод для получения расписания для каждой группы"""
+        """A method for getting a schedule for each group"""
         groups = self.db_users.get_groups()
 
         coroutines = [
@@ -155,7 +155,7 @@ class ScheduleChecker:
         return groups_schedule
 
     async def _get_themes_users(self, group: str) -> dict[str, list[int]]:
-        """Метод для получения пользователей которые используют определенную тему расписания"""
+        """A method for getting users and their themes from a group"""
         themes_users: dict = {}
         users_id: list[int] = []
 
@@ -178,7 +178,7 @@ class ScheduleChecker:
         date: str,
         filename: str
     ) -> None:
-        """Метод для асинхронного создания фото рассписания"""
+        """A method for async creating a photo list"""
         tasks_create_photo = []
         for theme in themes_users:
             image_creator = ImageCreator()
@@ -198,7 +198,7 @@ class ScheduleChecker:
     async def _open_photos_schedule(
         themes_users: dict[str, list[int]], filename: str
     ) -> dict[str, BufferedInputFile]:
-        """Метод для асинхронного открытия фото расписания"""
+        """Method for async opening of schedule photos"""
         open_photos = dict()
         for theme in themes_users:
             async with aiofiles.open(f"{WORKSPACE}{filename}_{theme}.jpeg", "rb") as f:
@@ -215,7 +215,7 @@ class ScheduleChecker:
     async def _get_user_chunks(
         themes_users: dict[str, list[int]]
     ) -> dict[str, list[list[int]]]:
-        """Метод для разбития пользователей на чанки по 10 человек в чанк"""
+        """A method for splitting users into chunks"""
         user_chunks_dict = dict()
 
         for theme, users_id in themes_users.items():
@@ -230,7 +230,7 @@ class ScheduleChecker:
         return user_chunks_dict
 
     async def _send_no_schedule_message(self, users: list[int], group: str, date: str):
-        """Метод для отправки сообщения об отсутствии расписания"""
+        """A method for sending a message about the absence of a schedule"""
         for user_id in users:
             try:
                 print(f"\t\t{no_schedule_for_date.format(group=group, date=date)}")
@@ -251,7 +251,7 @@ class ScheduleChecker:
         open_photos: dict[str, BufferedInputFile],
         updated_schedule: bool,
     ) -> None:
-        """Метод для отправки фото рассписания по чанкам"""
+        """A method for sending schedule photos by chunks"""
         for theme, user_chunks in user_chunks_dict.items():
             photo = open_photos[theme]
 
@@ -275,7 +275,7 @@ class ScheduleChecker:
         filename: str = "schedule",
         updated_schedule: bool = False,
     ) -> None:
-        """Метод для отправки расписания"""
+        """The method for sending the schedule"""
         try:
             # | groups_schedule: { [group, date]: list[list] }
 
