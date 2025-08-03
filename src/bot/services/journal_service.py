@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 class EJournalScraper:
-    """Класс для работы с электронным журналом"""
+    """A class for working with an electronic journal"""
     @staticmethod
     async def _perform_login(session: aiohttp.ClientSession, login_data: dict) -> bool:
-        """Выполняет вход в систему"""
+        """The method for logging in"""
         try:
             async with session.post(
                 ejournal_login_url, data=login_data, headers=ejournal_headers
@@ -38,7 +38,7 @@ class EJournalScraper:
 
     @staticmethod
     async def _save_html(content: str, file_path: str, mode: str = "w") -> None:
-        """Сохраняет HTML в файл"""
+        """A method for saving HTML to a file"""
         try:
             with open(file_path, mode, encoding="utf-8") as f:
                 f.write(content)
@@ -48,7 +48,7 @@ class EJournalScraper:
 
     @classmethod
     async def _clean_html(cls, html: str, is_first_page: bool) -> str:
-        """Очищает HTML от лишних элементов"""
+        """A method for cleaning HTML from unnecessary elements"""
         try:
             if is_first_page:
                 return await cls._basic_clean(html)
@@ -59,7 +59,7 @@ class EJournalScraper:
 
     @staticmethod
     async def _basic_clean(html_text: str) -> str:
-        """Базовая очистка HTML"""
+        """A method for basic HTML cleaning"""
         soup = BeautifulSoup(html_text, "html.parser")
 
         navbar = soup.find(
@@ -76,7 +76,7 @@ class EJournalScraper:
 
     @staticmethod
     async def _head_clean(html_text: str) -> str:
-        """Очистка заголовка HTML"""
+        """A method for clearing the HTML header"""
         soup = BeautifulSoup(html_text, "html.parser")
         nav_tag = soup.find("nav")
         if nav_tag:
@@ -87,7 +87,7 @@ class EJournalScraper:
 
     @staticmethod
     async def get_periods(session: aiohttp.ClientSession) -> list[str]:
-        """Получает список периодов"""
+        """Method for getting a list of periods"""
         try:
             async with session.get(
                 ejournal_profile_url, headers=ejournal_headers
@@ -105,7 +105,7 @@ class EJournalScraper:
     async def fetch_journal(
         cls, login_data: dict[str, str], user_id: int | str, all_semesters: bool = False
     ) -> bool:
-        """Метод получения журнала"""
+        """A method for obtaining an electronic journal"""
         user_file = f"{WORKSPACE}{user_id}.html"
 
         async with aiohttp.ClientSession() as session:
@@ -130,7 +130,7 @@ class EJournalScraper:
     async def _fetch_current_semester(
         cls, session: aiohttp.ClientSession, output_file: str
     ) -> bool:
-        """Получает данные за текущий семестр"""
+        """A method for getting data for the current semester"""
         try:
             async with session.get(
                 ejournal_profile_url, headers=ejournal_headers
@@ -151,7 +151,7 @@ class EJournalScraper:
     async def _fetch_all_semesters(
         cls, session: aiohttp.ClientSession, periods: list[str], output_file: str
     ) -> bool:
-        """Получает данные за все семестры"""
+        """A method for obtaining data for all semesters"""
         success = False
         for i, period in enumerate(periods):
             try:
@@ -173,10 +173,11 @@ class EJournalScraper:
 
 
 class JournalFileProcessor:
-    """Класс для обработки файлов журнала"""
+    """A class for processing log files"""
+
     @staticmethod
     async def inject_styles(filename: str | int) -> None:
-        """Добавляет CSS стили в HTML файл"""
+        """A method for adding CSS styles to an HTML file"""
 
         file_path = f"{WORKSPACE}{filename}.html"
         css_path = f"{PATH_CSS}style.css"
@@ -214,7 +215,7 @@ class JournalFileProcessor:
 
     @staticmethod
     async def send_to_user(user_id: int, all_semesters: bool = False) -> None:
-        """Отправляет файл журнала пользователю"""
+        """The method for sending the log file to the user"""
         from core.dependencies import container
 
         try:
