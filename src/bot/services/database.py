@@ -6,6 +6,8 @@ from cryptography.fernet import Fernet
 
 
 class DatabaseUsers:
+    """A class for working with user data"""
+
     def __init__(self, name_db: str) -> None:
         """Initializing necessary dependencies"""
         self.conn = sql3.connect(name_db, check_same_thread=False)
@@ -211,6 +213,8 @@ class DatabaseUsers:
 
 
 class DatabaseHashes:
+    """A class for working with schedule hashes"""
+
     def __init__(self, name_db: str) -> None:
         """Initializing necessary dependencies"""
         self.conn = sql3.connect(name_db, check_same_thread=False)
