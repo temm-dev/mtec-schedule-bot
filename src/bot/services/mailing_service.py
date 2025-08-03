@@ -6,7 +6,7 @@ from core.dependencies import container
 
 
 class MessageSender:
-    """Класс для рассылки сообщений пользователям"""
+    """A class for sending messages to users"""
     
     PARSE_MODE = "HTML"
     SEND_DELAY = 0.1
@@ -18,7 +18,7 @@ class MessageSender:
         message: str,
         report_to_admin: bool = False
     ) -> bool:
-        """Метод отправки одного сообщения"""
+        """The method of sending a single message"""
         try:
             await container.bot.send_message(user_id, message, parse_mode=cls.PARSE_MODE)
             
@@ -43,7 +43,7 @@ class MessageSender:
         user_id: Union[str, int],
         message: str
     ) -> None:
-        """Отправляет сообщение одному пользователю с отчетом админу"""
+        """Sends a message to one user with a report to the admin"""
         await cls._send_single_message(user_id, message, report_to_admin=True)
 
     @classmethod
@@ -51,7 +51,7 @@ class MessageSender:
         cls,
         message: str
     ) -> None:
-        """Отправляет сообщение всем пользователям"""
+        """A method for sending a message to all users"""
         users_id = container.db_users.get_users()
         failed_users = []
 
@@ -70,7 +70,7 @@ class MessageSender:
         group: str,
         message: str
     ) -> None:
-        """Отправляет сообщение группе пользователей"""
+        """A method for sending a message to a group of users"""
         users_id = container.db_users.get_users_by_group(group)
         failed_users = []
 
