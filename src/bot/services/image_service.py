@@ -8,7 +8,7 @@ from utils.utils import day_week_by_date
 
 
 class ImageCreator:
-    """Класс для создания изображения расписания"""
+    """A class for creating a timetable image"""
     MAX_TEXT_LENGTH = 200
     TEXT_TRUNCATE_MARKER = "..."
     SUBJECT_WRAP_WIDTH = 35
@@ -21,7 +21,7 @@ class ImageCreator:
 
     @classmethod
     def _setup_matplotlib(cls) -> None:
-        """Базовая настройка matplotlib перед началом работы"""
+        """Basic setup of matplotlib before getting started"""
         rcParams.update(
             {
                 "figure.max_open_warning": 0,
@@ -39,7 +39,7 @@ class ImageCreator:
 
     @classmethod
     def _auto_font_size(cls, text: str, max_chars: int = 35) -> int:
-        """Расчитывает размер шрифта в зависимости от длинны текста"""
+        """A method for calculating the font size depending on the length of the text"""
         text_length = len(str(text))
         if text_length <= max_chars:
             return cls.BASE_FONT_SIZE
@@ -51,7 +51,7 @@ class ImageCreator:
 
     @staticmethod
     def _wrap_text(text: str, width: int) -> str:
-        """Переносит текст на новую строку при превышении максимальной длинны"""
+        """A method for moving text to a new line when the maximum length is exceeded"""
         if not text:
             return ""
 
@@ -75,7 +75,7 @@ class ImageCreator:
 
     @staticmethod
     def _wrap_teacher_text(text: str) -> str:
-        """Переносит ФИО преподавателя на новую строку"""
+        """A method for transferring the teacher's full name to a new line"""
         parts = text.rsplit(" ", 3)
         if len(parts) >= 4:
             last_three = " ".join(parts[-3:])
@@ -90,7 +90,7 @@ class ImageCreator:
         number_rows: int,
         theme: str = "Classic",
     ) -> None:
-        """Проверяет корректность входных параметров"""
+        """A method for verifying the correctness of input parameters"""
         if not data:
             raise ValueError("Data list cannot be empty")
             
@@ -112,7 +112,7 @@ class ImageCreator:
         filename: int | str = "schedule",
         theme: str = "Classic",
     ) -> None:
-        """Создает изображение расписания"""
+        """A method for creating a timetable image"""
 
         cls._validation_arguments(data, date, number_rows, theme)
 
