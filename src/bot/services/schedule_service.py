@@ -14,11 +14,11 @@ from utils.utils import day_week_by_date
 
 
 class ScheduleService:
-    """Класс для работы с расписанием"""
+    """A class for working with a schedule"""
 
     @staticmethod
     async def _send_request(url: str, headers: dict, data: dict) -> str | None:
-        """Метод для отправки запроса на сервер"""
+        """Method for sending a request to the server"""
         try:
             while True:
                 async with aiohttp.ClientSession() as session:
@@ -36,7 +36,7 @@ class ScheduleService:
 
     @staticmethod
     def _validation_arguments(group: str, date: str):
-        """Метод для валидации аргументов"""
+        """A method for validating arguments"""
         if not isinstance(group, str):
             raise TypeError('The "group" parameter does not equal the str data type.')
 
@@ -45,7 +45,7 @@ class ScheduleService:
 
     @staticmethod
     def _parse_schedule_html(html_content: str) -> list[list[str]]:
-        """Парсит HTML расписания и возвращает структурированные данные"""
+        """A method for parsing HTML schedules and returning structured data (crutch)"""
         with open(f"{WORKSPACE}schedule.html", "w") as file:
             file.write(html_content)
 
@@ -75,7 +75,7 @@ class ScheduleService:
 
     @classmethod
     async def get_dates_schedule(cls, actual_dates: bool = True) -> list[str] | list:
-        """Метод для получения доступных дат в расписании"""
+        """A method for getting the available dates in the schedule"""
         try:
             response = await cls._send_request(
                 requets_url, base_request_headers, request_data
@@ -104,7 +104,7 @@ class ScheduleService:
 
     @classmethod
     async def get_groups_schedule(cls) -> list[str]:
-        """Метод для получения доступны групп"""
+        """Method for getting available groups"""
         try:
             response = await cls._send_request(
                 requets_url, base_request_headers, request_data
@@ -124,7 +124,7 @@ class ScheduleService:
 
     @classmethod
     async def get_schedule(cls, group: str, date: str) -> list[list[str]]:
-        """Получает расписание для указанной группы и даты"""
+        """Gets the schedule for the specified group by date"""
         cls._validation_arguments(group, date)
 
         request_data_schedule = {
@@ -154,7 +154,7 @@ class ScheduleService:
     async def send_schedule_by_group(
         cls, user_id: int, user_group: str, filename: str = ""
     ) -> None:
-        """Метод для отправки расписания по группе"""
+        """A method for sending schedules by group"""
         from core.dependencies import container
         from services.image_service import ImageCreator
 
