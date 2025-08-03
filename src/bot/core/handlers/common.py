@@ -37,7 +37,6 @@ def register(dp: Dispatcher):
 
 
 async def check_user_in_db(user_id: int, user_group: str) -> None:
-    # ? - Сделать рефакторинг проверки пользователя в базе данных
     if container.db_users.check_user_in_db(user_id, user_group):
         container.db_users.add_user_into_db(user_id, user_group)
     else:
