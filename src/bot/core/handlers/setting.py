@@ -5,7 +5,6 @@ from config.settings import settings_dict_text
 from config.themes import themes_names
 from core.dependencies import container
 from phrases import *
-from utils.formatters import format_error_message
 from utils.keyboard import build_settings_keyboard
 from utils.markup import inline_markup_select_theme, media_photo_themes
 
