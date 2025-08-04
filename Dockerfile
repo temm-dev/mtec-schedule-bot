@@ -1,9 +1,9 @@
 FROM python:3.13-slim
 
-RUN mkdir -p /usr/src/mtecbot
-WORKDIR /usr/src/mtecbot
+RUN mkdir -p /usr/src/mtec-schedule-bot
+WORKDIR /usr/src/mtec-schedule-bot
 
-COPY . /usr/src/mtecbot
+COPY . /usr/src/mtec-schedule-bot
 
 RUN pip3 install poetry
 
