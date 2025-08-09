@@ -4,11 +4,12 @@ import time
 from datetime import datetime
 
 import aiofiles
+from aiogram.exceptions import TelegramRetryAfter
 from aiogram.types import BufferedInputFile
+from aiolimiter import AsyncLimiter
 from config import themes_names
 from config.paths import WORKSPACE
 from phrases import no_schedule_for_date
-
 from services.image_service import ImageCreator
 from services.schedule_service import ScheduleService
 from utils.formatters import format_error_message
@@ -29,6 +30,7 @@ class ScheduleChecker:
         self.db_users = db_users
         self.db_hashes = db_hashes
         self.schedule_service = ScheduleService()
+        self.limiter = AsyncLimiter(10, 3)
 
     async def is_night_time(self) -> bool:
         """A method for checking whether the current hour is night"""
@@ -47,14 +49,14 @@ class ScheduleChecker:
                     continue
 
                 await self.process_schedule_updates()
-                
+
                 print(f"Ожидание... ⏳ I-{iteration}")
                 iteration += 1
                 await asyncio.sleep(self.SLEEP_DAY)
         except Exception as e:
             print(format_error_message(self.run_schedule_check.__name__, e))
             await asyncio.sleep(3)
-    
+
     async def process_schedule_updates(self) -> None:
         """A method for schedule processing"""
         actual_dates = await self.schedule_service.get_dates_schedule()
@@ -81,14 +83,20 @@ class ScheduleChecker:
         groups_schedule = await self.get_all_schedule(updated_current_dates)
         await self.check_schedule_change(groups_schedule)
 
-    async def handle_new_schedules(self, new_dates: list[str], actual_dates: list[str]) -> None:
+    async def handle_new_schedules(
+        self, new_dates: list[str], actual_dates: list[str]
+    ) -> None:
         """A method for processing the schedule that appears"""
-        groups_schedule = await self.get_all_schedule(new_dates) # Получение расписания для каждой группы
-        await self.check_schedule_change(groups_schedule) # Добавление хешей расписания в базу данных
+        groups_schedule = await self.get_all_schedule(
+            new_dates
+        )  # Получение расписания для каждой группы
+        await self.check_schedule_change(
+            groups_schedule
+        )  # Добавление хешей расписания в базу данных
 
         start_send_time = time.time()
 
-        await self.send_schedule(groups_schedule) # Начало рассылки расписания
+        await self.send_schedule(groups_schedule)  # Начало рассылки расписания
 
         end_send_time = time.time()
 
@@ -129,11 +137,29 @@ class ScheduleChecker:
         try:
             if updated:
                 await self.bot.send_photo(
-                    user_id, photo=photo, caption="🆕 Расписание изменилось!"
+                    user_id,
+                    photo=photo,
+                    caption="🆕 Расписание изменилось!",
+                    disable_notification=True,
                 )
                 return
 
-            await self.bot.send_photo(user_id, photo)
+            await self.bot.send_photo(user_id, photo, disable_notification=True)
+
+        except TelegramRetryAfter as e:
+            print(f"Error RetryAfter - {e.retry_after}")
+            await asyncio.sleep(e.retry_after + 1)
+
+            if updated:
+                await self.bot.send_photo(
+                    user_id,
+                    photo=photo,
+                    caption="🆕 Расписание изменилось!",
+                    disable_notification=True,
+                )
+                return
+
+            await self.bot.send_photo(user_id, photo, disable_notification=True)
         except Exception as e:
             print(f"Ошибка send_photo для {user_id}")
 
@@ -143,13 +169,17 @@ class ScheduleChecker:
 
         coroutines = [
             self.schedule_service.get_schedule(group, date)
-            for group in groups
             for date in dates
+            for group in groups
         ]
 
         keys = [f"{group} {date}" for group in groups for date in dates]
 
-        results = await asyncio.gather(*coroutines)
+        results = []
+        for coroutine in coroutines:
+            response = await asyncio.create_task(coroutine)
+            results.append(response)
+
         groups_schedule: dict[str, list[list]] = dict(zip(keys, results))
 
         return groups_schedule
@@ -173,21 +203,20 @@ class ScheduleChecker:
 
     @staticmethod
     async def _create_photos_schedule(
-        themes_users: dict[str, list[int]],
-        schedule: list,
-        date: str,
-        filename: str
+        themes_users: dict[str, list[int]], schedule: list, date: str, group: str
     ) -> None:
         """A method for async creating a photo list"""
         tasks_create_photo = []
         for theme in themes_users:
+            filename = f"{group}_{theme}"
+
             image_creator = ImageCreator()
             tasks_create_photo.append(
-                await image_creator.create_schedule_image(
+                image_creator.create_schedule_image(
                     data=schedule,
                     date=date,
                     number_rows=len(schedule) + 1,
-                    filename=f"{filename}_{theme}",
+                    filename=filename,
                     theme=theme,
                 )
             )
@@ -196,16 +225,17 @@ class ScheduleChecker:
 
     @staticmethod
     async def _open_photos_schedule(
-        themes_users: dict[str, list[int]], filename: str
+        themes_users: dict[str, list[int]], group: str
     ) -> dict[str, BufferedInputFile]:
         """Method for async opening of schedule photos"""
         open_photos = dict()
         for theme in themes_users:
-            async with aiofiles.open(f"{WORKSPACE}{filename}_{theme}.jpeg", "rb") as f:
+            filename = f"{group}_{theme}"
+            async with aiofiles.open(f"{WORKSPACE}{filename}.jpeg", "rb") as f:
                 photo_data = await f.read()
 
             photo = BufferedInputFile(
-                photo_data, filename=f"{WORKSPACE}{filename}_{theme}.jpeg"
+                photo_data, filename=f"{WORKSPACE}{filename}.jpeg"
             )
             open_photos[theme] = photo
 
@@ -213,7 +243,7 @@ class ScheduleChecker:
 
     @staticmethod
     async def _get_user_chunks(
-        themes_users: dict[str, list[int]]
+        themes_users: dict[str, list[int]],
     ) -> dict[str, list[list[int]]]:
         """A method for splitting users into chunks"""
         user_chunks_dict = dict()
@@ -232,18 +262,30 @@ class ScheduleChecker:
     async def _send_no_schedule_message(self, users: list[int], group: str, date: str):
         """A method for sending a message about the absence of a schedule"""
         for user_id in users:
-            try:
-                print(f"\t\t{no_schedule_for_date.format(group=group, date=date)}")
-                await self.bot.send_message(
-                    user_id,
-                    no_schedule_for_date.format(group=group, date=date),
-                    parse_mode="HTML",
-                )
-                await asyncio.sleep(0.1)
-            except Exception as e:
-                print(f"\t\t🟥 Ошибка при отправке сообщения пользователю {user_id} - {group}\n")
+            async with self.limiter:
+                try:
+                    print(f"\t\t{no_schedule_for_date.format(group=group, date=date)}")
+                    await self.bot.send_message(
+                        user_id,
+                        no_schedule_for_date.format(group=group, date=date),
+                        parse_mode="HTML",
+                        disable_notification=True,
+                    )
 
-        await asyncio.sleep(3)
+                except TelegramRetryAfter as e:
+                    print(f"Error RetryAfter - {e.retry_after}")
+                    await asyncio.sleep(e.retry_after + 1)
+
+                    await self.bot.send_message(
+                        user_id,
+                        no_schedule_for_date.format(group=group, date=date),
+                        parse_mode="HTML",
+                        disable_notification=True,
+                    )
+                except Exception as e:
+                    print(
+                        f"\t\t🟥 Ошибка при отправке сообщения пользователю {user_id} - {group}\n"
+                    )
 
     async def _send_schedule(
         self,
@@ -265,14 +307,13 @@ class ScheduleChecker:
                         continue
                     tasks.append(self.safe_send_photo(user_id, photo, False))
 
-                await asyncio.gather(*tasks)
-                await asyncio.sleep(3)
-
+                for task in tasks:
+                    async with self.limiter:
+                        await asyncio.create_task(task)
 
     async def send_schedule(
         self,
         groups_schedule: dict[str, list[list]],
-        filename: str = "schedule",
         updated_schedule: bool = False,
     ) -> None:
         """The method for sending the schedule"""
@@ -296,7 +337,7 @@ class ScheduleChecker:
                     await self._send_no_schedule_message(users, group, date)
                     continue
 
-                await self._create_photos_schedule(themes_users, schedule, date, filename)
+                await self._create_photos_schedule(themes_users, schedule, date, group)
 
                 open_photos = await self._open_photos_schedule(themes_users, group)
 
@@ -308,6 +349,13 @@ class ScheduleChecker:
                     user_chunks_dict, open_photos, updated_schedule
                 )
 
-                await asyncio.sleep(3)
+                for theme in themes_users:
+                    filename = f"{group}_{theme}.jpeg"
+                    (
+                        os.remove(f"{WORKSPACE}{filename}")
+                        if os.path.exists(f"{WORKSPACE}{filename}")
+                        else False
+                    )
+
         except Exception as e:
             print(format_error_message(self.send_schedule.__name__, e))
