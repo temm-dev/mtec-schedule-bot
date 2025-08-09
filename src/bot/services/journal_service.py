@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class EJournalScraper:
     """A class for working with an electronic journal"""
+
     @staticmethod
     async def _perform_login(session: aiohttp.ClientSession, login_data: dict) -> bool:
         """The method for logging in"""

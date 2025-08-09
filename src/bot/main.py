@@ -11,7 +11,6 @@ from services.database import DatabaseHashes, DatabaseUsers
 from services.schedule_checker_service import ScheduleChecker
 from services.schedule_service import ScheduleService
 
-
 coloredlogs.install(level="INFO", fmt="%(asctime)s - %(levelname)s - %(message)s")
 
 logger = logging.getLogger(__name__)
@@ -37,7 +36,9 @@ async def main():
     setup_handlers(dp)
 
     print("START CHECK SCHEDULE 🤖")
-    schedule_checker = ScheduleChecker(container.bot, container.db_users, container.db_hashes)
+    schedule_checker = ScheduleChecker(
+        container.bot, container.db_users, container.db_hashes
+    )
     asyncio.create_task(schedule_checker.run_schedule_check())
 
     print("START HANDLERS 🤖")

@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from config.paths import WORKSPACE
-from config.themes import themes_parameters, themes_names
+from config.themes import themes_names, themes_parameters
 from matplotlib import rcParams
 from matplotlib.table import Table
 from utils.utils import day_week_by_date
@@ -9,6 +9,7 @@ from utils.utils import day_week_by_date
 
 class ImageCreator:
     """A class for creating a timetable image"""
+
     MAX_TEXT_LENGTH = 200
     TEXT_TRUNCATE_MARKER = "..."
     SUBJECT_WRAP_WIDTH = 35
@@ -35,7 +36,7 @@ class ImageCreator:
             }
         )
 
-        plt.switch_backend('Agg')
+        plt.switch_backend("Agg")
 
     @classmethod
     def _auto_font_size(cls, text: str, max_chars: int = 35) -> int:
@@ -43,11 +44,13 @@ class ImageCreator:
         text_length = len(str(text))
         if text_length <= max_chars:
             return cls.BASE_FONT_SIZE
-        
+
         scale_factor = max_chars / text_length
-        return int(np.clip(cls.BASE_FONT_SIZE * scale_factor, 
-                           cls.MIN_FONT_SIZE, 
-                           cls.BASE_FONT_SIZE))
+        return int(
+            np.clip(
+                cls.BASE_FONT_SIZE * scale_factor, cls.MIN_FONT_SIZE, cls.BASE_FONT_SIZE
+            )
+        )
 
     @staticmethod
     def _wrap_text(text: str, width: int) -> str:
@@ -93,13 +96,13 @@ class ImageCreator:
         """A method for verifying the correctness of input parameters"""
         if not data:
             raise ValueError("Data list cannot be empty")
-            
+
         if not isinstance(date, str):
             raise TypeError(f"Date must be string, got {type(date).__name__}")
-            
+
         if not isinstance(number_rows, int) or number_rows <= 0:
             raise TypeError("Number of rows must be positive integer")
-            
+
         if theme not in themes_names:
             raise ValueError(f"Unknown theme: {theme}. Available: {themes_names}")
 
@@ -109,7 +112,7 @@ class ImageCreator:
         data: list,
         date: str,
         number_rows: int,
-        filename: int | str = "schedule",
+        filename: str,
         theme: str = "Classic",
     ) -> None:
         """A method for creating a timetable image"""

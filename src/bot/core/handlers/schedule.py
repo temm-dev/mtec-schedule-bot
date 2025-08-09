@@ -4,7 +4,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from core.dependencies import container
 from phrases import *
-
 from services.schedule_service import ScheduleService
 from utils.markup import inline_markup_select_group, media_call_schedule_photos
 
@@ -73,6 +72,8 @@ async def schedule_friend_check(cb: CallbackQuery, state: FSMContext) -> None:
         reply_markup=None,
     )
 
-    await schedule_service.send_schedule_by_group(user_id, friend_group, "_friend_schedule")
+    await schedule_service.send_schedule_by_group(
+        user_id, friend_group, "_friend_schedule"
+    )
 
     await state.clear()

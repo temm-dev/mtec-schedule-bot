@@ -43,7 +43,7 @@ class DatabaseUsers:
         """A method for getting the IDs of all users in the database"""
         data = self.cur.execute(f"""SELECT user_id FROM Users """)
         data = data.fetchall()
-        users_ids = [ user_id[0] for user_id in data ]
+        users_ids = [user_id[0] for user_id in data]
 
         return users_ids
 
@@ -64,7 +64,7 @@ class DatabaseUsers:
             f"""SELECT user_id FROM Users WHERE user_group == ? AND toggle_schedule == 0 """,
             (group,),
         )
-        users_ids = [ user_id[0] for user_id in data ]
+        users_ids = [user_id[0] for user_id in data]
 
         return users_ids
 
@@ -75,7 +75,7 @@ class DatabaseUsers:
             (group, theme),
         )
         data = data.fetchall()
-        users_ids = [ user_id[0] for user_id in data ]
+        users_ids = [user_id[0] for user_id in data]
 
         return users_ids
 

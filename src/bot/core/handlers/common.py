@@ -6,7 +6,6 @@ from config.bot_config import ADMIN
 from config.paths import WORKSPACE
 from core.dependencies import container
 from phrases import *
-
 from services.schedule_service import ScheduleService
 from utils.formatters import format_error_message
 from utils.markup import (
