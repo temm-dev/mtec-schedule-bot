@@ -51,7 +51,10 @@ class DatabaseUsers:
         """Method for getting all the groups in the database"""
         data = self.cur.execute(f"""SELECT user_group FROM Users """)
         data = data.fetchall()
-        groups = ( group[0] for group in data )
+        groups = set()
+
+        for group in data:
+            groups.add(group[0])
 
         return list(groups)
 
