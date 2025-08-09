@@ -1,7 +1,7 @@
 <h1 align="center">📅 MTEC Schedule Bot</h1>
 
 <p align="center">
-  <img src="assets/mtec-black-back.png" alt="Project Demo" width="800">
+  <img src="assets/mtec-black-back.png" alt="Project Demo">
 </p>
 
 
