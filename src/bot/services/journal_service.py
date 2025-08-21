@@ -72,6 +72,18 @@ class EJournalScraper:
         search_form = soup.find("form", class_="d-flex", role="search")
         if search_form:
             search_form.decompose()
+        
+        br_tag = soup.find("br")
+        if br_tag:
+            br_tag.decompose()
+        
+        br_tag = soup.find("br")
+        if br_tag:
+            br_tag.decompose()
+        
+        div_container = soup.find("div", class_="container w-70")
+        if div_container:
+            div_container.decompose()
 
         return str(soup)
 
@@ -79,11 +91,15 @@ class EJournalScraper:
     async def _head_clean(html_text: str) -> str:
         """A method for clearing the HTML header"""
         soup = BeautifulSoup(html_text, "html.parser")
-        nav_tag = soup.find("nav")
+        nav_tag = soup.find("nav", class_="navbar bg-dark")
+        div_tag = soup.find("div", class_="container w-70")
+
         if nav_tag:
-            button = nav_tag.find("button")  # type: ignore
-            if button:
-                button.decompose()  # type: ignore
+            nav_tag.decompose()
+        
+        if div_tag:
+            div_tag.decompose()
+
         return str(soup)
 
     @staticmethod
