@@ -7,7 +7,6 @@ from config.paths import WORKSPACE
 from core.dependencies import container
 from phrases import *
 from services.schedule_service import ScheduleService
-from utils.formatters import format_error_message
 from utils.markup import (
     inline_markup_additional_functions,
     inline_markup_additional_functions_bot,
