@@ -1,6 +1,7 @@
 import asyncio
 import os
 import time
+import random
 from datetime import datetime
 
 import aiofiles
@@ -22,7 +23,7 @@ class ScheduleChecker:
 
     SLEEP_NIGHT = 3600
     SLEEP_DAY = 60
-    NIGHT_HOURS = (22, 23, 0, 1, 2, 3, 4, 5, 6, 7)
+    NIGHT_HOURS = (22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8)
 
     def __init__(self, bot, db_users, db_hashes):
         """Initializing necessary dependencies"""
@@ -32,18 +33,20 @@ class ScheduleChecker:
         self.schedule_service = ScheduleService()
         self.limiter = AsyncLimiter(10, 3)
 
-    async def is_night_time(self) -> bool:
-        """A method for checking whether the current hour is night"""
-        return datetime.now().hour in self.NIGHT_HOURS
+    @classmethod
+    async def is_night_time(cls) -> bool:
+        """Checking whether the current hour is night"""
+        return datetime.now().hour in cls.NIGHT_HOURS
 
     async def run_schedule_check(self) -> None:
-        """A method to start tracking the appearance and schedule changes"""
+        """Start tracking the appearance and schedule changes"""
         print("Проверка расписания запущена ✅ 🔄")
         iteration = 1
         try:
             while True:
                 if await self.is_night_time():
                     print(f"🌙 Остановка проверки на 1ч (ночное время)")
+                    print(f"Текущий час: {datetime.now().hour}")
                     self.db_hashes.cleanup_old_hashes()
                     await asyncio.sleep(self.SLEEP_NIGHT)
                     continue
@@ -90,6 +93,7 @@ class ScheduleChecker:
         groups_schedule = await self.get_all_schedule(
             new_dates
         )  # Получение расписания для каждой группы
+
         await self.check_schedule_change(
             groups_schedule
         )  # Добавление хешей расписания в базу данных
@@ -120,11 +124,7 @@ class ScheduleChecker:
 
                 if self.db_hashes.check_hash_change(group, date, hash_value) == True:
                     print(f"Расписание у группы {group} - {date} изменилось")
-                    await self.send_schedule({f"{group} {date}": schedule}, group, True)  # type: ignore
-
-                    for theme in themes_names:
-                        if os.path.exists(f"{WORKSPACE}{group}_{theme}.jpeg"):
-                            os.remove(f"{WORKSPACE}{group}_{theme}.jpeg")
+                    await self.send_schedule({f"{group} {date}": schedule}, True)  # type: ignore
 
                 elif self.db_hashes.check_hash_change(group, date, hash_value) == False:
                     continue
@@ -134,34 +134,29 @@ class ScheduleChecker:
 
     async def safe_send_photo(self, user_id: int, photo, updated: bool):
         """Method for sending schedule photos"""
-        try:
-            if updated:
+        caption = "🆕 Расписание изменилось!" if updated else None
+
+        attempt = 0
+        while attempt <= 3:
+            try:
                 await self.bot.send_photo(
                     user_id,
                     photo=photo,
-                    caption="🆕 Расписание изменилось!",
-                    disable_notification=True,
+                    caption=caption,
+                    disable_notification=True
                 )
-                return
+                return True
 
-            await self.bot.send_photo(user_id, photo, disable_notification=True)
+            except TelegramRetryAfter as e:
+                wait = float(e.retry_after) + 1.0 + random.random()
+                attempt += 1
 
-        except TelegramRetryAfter as e:
-            print(f"Error RetryAfter - {e.retry_after}")
-            await asyncio.sleep(e.retry_after + 1)
+                print(f"Error RetryAfter - {wait}")
+                await asyncio.sleep(wait)
 
-            if updated:
-                await self.bot.send_photo(
-                    user_id,
-                    photo=photo,
-                    caption="🆕 Расписание изменилось!",
-                    disable_notification=True,
-                )
-                return
-
-            await self.bot.send_photo(user_id, photo, disable_notification=True)
-        except Exception as e:
-            print(f"Ошибка send_photo для {user_id}")
+            except Exception as e:
+                attempt += 1
+                print(f"Ошибка send_photo для {user_id}")
 
     async def get_all_schedule(self, dates: list[str]) -> dict[str, list[list]]:
         """A method for getting a schedule for each group"""
@@ -193,10 +188,8 @@ class ScheduleChecker:
             users_id: list[int] = self.db_users.get_users_by_theme(group, theme)
 
             if any(users_id):
-                print(f"\t✅ 🌌 Есть пользователи с темой {theme}")
                 themes_users[theme] = users_id
             else:
-                print(f"\t❌ 🌌 Нет пользователей с темой {theme}")
                 continue
 
         return themes_users
@@ -261,31 +254,32 @@ class ScheduleChecker:
 
     async def _send_no_schedule_message(self, users: list[int], group: str, date: str):
         """A method for sending a message about the absence of a schedule"""
+        attempt = 0
         for user_id in users:
             async with self.limiter:
-                try:
-                    print(f"\t\t{no_schedule_for_date.format(group=group, date=date)}")
-                    await self.bot.send_message(
-                        user_id,
-                        no_schedule_for_date.format(group=group, date=date),
-                        parse_mode="HTML",
-                        disable_notification=True,
-                    )
+                while attempt <= 3:
+                    try:
+                        print(f"\t\t{no_schedule_for_date.format(group=group, date=date)}")
+                        await self.bot.send_message(
+                            user_id,
+                            no_schedule_for_date.format(group=group, date=date),
+                            parse_mode="HTML",
+                            disable_notification=True
+                        )
+                        break
 
-                except TelegramRetryAfter as e:
-                    print(f"Error RetryAfter - {e.retry_after}")
-                    await asyncio.sleep(e.retry_after + 1)
+                    except TelegramRetryAfter as e:
+                        wait = float(e.retry_after) + 1.0 + random.random()
+                        attempt += 1
 
-                    await self.bot.send_message(
-                        user_id,
-                        no_schedule_for_date.format(group=group, date=date),
-                        parse_mode="HTML",
-                        disable_notification=True,
-                    )
-                except Exception as e:
-                    print(
-                        f"\t\t🟥 Ошибка при отправке сообщения пользователю {user_id} - {group}\n"
-                    )
+                        print(f"Error RetryAfter - {wait}")
+                        await asyncio.sleep(wait)
+
+                    except Exception as e:
+                        attempt += 1
+                        print(
+                            f"\t\t🟥 attempt({attempt}) - Ошибка при отправке {user_id} - {group}\n"
+                        )
 
     async def _send_schedule(
         self,
@@ -301,11 +295,7 @@ class ScheduleChecker:
                 tasks = []
                 for user_id in chunk:
                     tasks.append(print_sent(user_id))
-
-                    if updated_schedule:
-                        tasks.append(self.safe_send_photo(user_id, photo, True))
-                        continue
-                    tasks.append(self.safe_send_photo(user_id, photo, False))
+                    tasks.append(self.safe_send_photo(user_id, photo, updated_schedule))
 
                 for task in tasks:
                     async with self.limiter:
@@ -318,7 +308,7 @@ class ScheduleChecker:
     ) -> None:
         """The method for sending the schedule"""
         try:
-            # | groups_schedule: { [group, date]: list[list] }
+            # | groups_schedule: { "group date": list[list[...]] }
 
             for group_date, schedule in groups_schedule.items():
                 data = group_date.split(" ")
@@ -331,11 +321,11 @@ class ScheduleChecker:
                 print(f"date: {date}")
                 print(f"users: {users}")
 
-                themes_users = await self._get_themes_users(group)
-
                 if not any(schedule):
                     await self._send_no_schedule_message(users, group, date)
                     continue
+
+                themes_users = await self._get_themes_users(group)
 
                 await self._create_photos_schedule(themes_users, schedule, date, group)
 
