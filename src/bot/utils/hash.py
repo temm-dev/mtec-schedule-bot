@@ -3,8 +3,10 @@ import re
 import unicodedata
 import html
 
+
+
 async def generate_hash(schedule: list[list[str]], remove_accents: bool = True) -> str:
-    """Generate a SHA-256 hash for the given schedule."""
+    """Generate a SHA-256 hash for the given schedule"""
 
     def normalize_text(s: str) -> str:
         s = html.unescape(s or "")
