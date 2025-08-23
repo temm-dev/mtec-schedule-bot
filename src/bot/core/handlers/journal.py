@@ -25,7 +25,7 @@ def register(dp: Dispatcher):
 @event_handler(admin_check=False)
 async def ejournal_handler(ms: Message, state: FSMContext) -> None:
     user_id = ms.from_user is not None and ms.from_user.id
-    user_info: list = container.db_users.get_user_ejournal_info(user_id)
+    user_info: list = await container.db_users.get_user_ejournal_info(user_id)
 
     if not user_info == []:
         await send_ejournal_file(user_id)
@@ -75,7 +75,7 @@ async def ejournal_enter_password(ms: Message, state: FSMContext) -> None:
         await state.set_state(EJournalFSM.enter_username)
         return
 
-    container.db_users.add_user_ejournal_info(user_id, user_info)
+    await container.db_users.add_user_ejournal_info(user_id, user_info)
 
     await ms.answer(correctly_entered_data_text, parse_mode="HTML")
     await send_ejournal_file(user_id)
@@ -96,5 +96,5 @@ async def change_ejournal_info_handler(ms: Message, state: FSMContext) -> None:
 async def delete_ejournal_info_handler(ms: Message, state: FSMContext) -> None:
     user_id = ms.from_user is not None and ms.from_user.id
 
-    container.db_users.delete_user_ejournal_info(user_id)
+    await container.db_users.delete_user_ejournal_info(user_id)
     await ms.answer(deleted_user_ejournal_info_text)

@@ -1,7 +1,7 @@
 import asyncio
 import os
-import time
 import random
+import time
 from datetime import datetime
 
 import aiofiles
@@ -56,6 +56,7 @@ class ScheduleChecker:
                 print(f"Ожидание... ⏳ I-{iteration}")
                 iteration += 1
                 await asyncio.sleep(self.SLEEP_DAY)
+
         except Exception as e:
             print(format_error_message(self.run_schedule_check.__name__, e))
             await asyncio.sleep(3)
@@ -63,6 +64,8 @@ class ScheduleChecker:
     async def process_schedule_updates(self) -> None:
         """A method for schedule processing"""
         actual_dates = await self.schedule_service.get_dates_schedule()
+
+        # actual_dates = ["05.07.2025"]
 
         with open(f"{WORKSPACE}current_date.txt", "r") as file:
             current_dates = file.read().splitlines()
@@ -140,10 +143,7 @@ class ScheduleChecker:
         while attempt <= 3:
             try:
                 await self.bot.send_photo(
-                    user_id,
-                    photo=photo,
-                    caption=caption,
-                    disable_notification=True
+                    user_id, photo=photo, caption=caption, disable_notification=True
                 )
                 return True
 
@@ -160,7 +160,7 @@ class ScheduleChecker:
 
     async def get_all_schedule(self, dates: list[str]) -> dict[str, list[list]]:
         """A method for getting a schedule for each group"""
-        groups = self.db_users.get_groups()
+        groups = await self.db_users.get_groups()
 
         coroutines = [
             self.schedule_service.get_schedule(group, date)
@@ -185,7 +185,7 @@ class ScheduleChecker:
         users_id: list[int] = []
 
         for theme in themes_names:
-            users_id: list[int] = self.db_users.get_users_by_theme(group, theme)
+            users_id: list[int] = await self.db_users.get_users_by_theme(group, theme)
 
             if any(users_id):
                 themes_users[theme] = users_id
@@ -259,7 +259,9 @@ class ScheduleChecker:
             async with self.limiter:
                 while attempt <= 3:
                     try:
-                        print(f"\t\t{no_schedule_for_date.format(group=group, date=date)}")
+                        print(
+                            f"\t\t{no_schedule_for_date.format(group=group, date=date)}"
+                        )
                         await self.bot.send_message(
                             user_id,
                             no_schedule_for_date.format(group=group, date=date),
@@ -315,7 +317,7 @@ class ScheduleChecker:
                 group = data[0]
                 date = data[1]
 
-                users: list[int] = self.db_users.get_users_by_group(group)
+                users: list[int] = await self.db_users.get_users_by_group(group)
 
                 print(f"group: {group}")
                 print(f"date: {date}")

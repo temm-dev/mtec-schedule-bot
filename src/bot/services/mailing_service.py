@@ -42,7 +42,7 @@ class MessageSender:
     @classmethod
     async def send_message_to_all_users(cls, message: str) -> None:
         """A method for sending a message to all users"""
-        users_id = container.db_users.get_users()
+        users_id = await container.db_users.get_users()
         failed_users = []
 
         for user_id in users_id:
@@ -59,7 +59,7 @@ class MessageSender:
     @classmethod
     async def send_message_to_group(cls, group: str, message: str) -> None:
         """A method for sending a message to a group of users"""
-        users_id = container.db_users.get_users_by_group(group)
+        users_id = await container.db_users.get_users_by_group(group)
         failed_users = []
 
         for user_id in users_id:

@@ -35,11 +35,11 @@ def register(dp: Dispatcher):
 
 
 async def check_user_in_db(user_id: int, user_group: str) -> None:
-    if container.db_users.check_user_in_db(user_id, user_group):
-        container.db_users.add_user_into_db(user_id, user_group)
+    if await container.db_users.check_user_in_db(user_id, user_group):
+        await container.db_users.add_user_into_db(user_id, user_group)
     else:
-        container.db_users.delete_user_from_db(user_id)
-        container.db_users.add_user_into_db(user_id, user_group)
+        await container.db_users.delete_user_from_db(user_id)
+        await container.db_users.add_user_into_db(user_id, user_group)
 
 
 @router.callback_query(LegalInformationFilter())
@@ -151,9 +151,7 @@ async def technical_support_handler(ms: Message, state: FSMContext) -> None:
     message1 = await ms.answer(support_text, parse_mode="HTML")
     message2 = await ms.answer(enter_message_text)
 
-    await state.update_data(
-        need_to_delete=[message1.message_id, message2.message_id]
-    )
+    await state.update_data(need_to_delete=[message1.message_id, message2.message_id])
     await state.set_state(SupportFSM.support)
 
 
@@ -171,11 +169,15 @@ async def technical_support_next_handler(ms: Message, state: FSMContext) -> None
 
     if not isinstance(need_to_delete, list):
         return None
+    
 
-    user_id = ms.from_user is not None and ms.from_user.id
-    user_username = ms.from_user is not None and ms.from_user.username
-    user_firstname = ms.from_user is not None and ms.from_user.first_name
-    user_lastname = ms.from_user is not None and ms.from_user.last_name
+    if ms.from_user is None:
+        return
+
+    user_id = ms.from_user.id
+    user_username = ms.from_user.username
+    user_firstname = ms.from_user.first_name
+    user_lastname = ms.from_user.last_name
 
     await container.bot.delete_messages(user_id, need_to_delete)
     await state.update_data(must_be_deleted=[])

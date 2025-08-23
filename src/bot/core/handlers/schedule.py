@@ -29,7 +29,7 @@ async def resend_schedule_handler(ms: Message, state: FSMContext) -> None:
     await ms.answer(checking_schedule_text)
 
     user_id = ms.from_user is not None and ms.from_user.id
-    user_group = container.db_users.get_group_by_user_id(user_id)
+    user_group = await container.db_users.get_group_by_user_id(user_id)
 
     await schedule_service.send_schedule_by_group(user_id, user_group, "_resend")
 

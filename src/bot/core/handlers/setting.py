@@ -27,7 +27,7 @@ def register(dp: Dispatcher):
 @event_handler(admin_check=False)
 async def select_theme_handler(cb: CallbackQuery, state: FSMContext) -> None:
     user_id = cb.from_user is not None and cb.from_user.id
-    user_theme = container.db_users.get_theme_by_user_id(user_id)
+    user_theme = await container.db_users.get_theme_by_user_id(user_id)
 
     media_group_message = await container.bot.send_media_group(
         user_id, media_photo_themes
@@ -60,7 +60,7 @@ async def select_theme_callback(cb: CallbackQuery, state: FSMContext) -> None:
     if not user_theme in themes_names:
         return None
 
-    container.db_users.change_user_theme(user_id, user_theme)
+    await container.db_users.change_user_theme(user_id, user_theme)
 
     data = await state.get_data()
     need_to_delete = data.get("need_to_delete")
@@ -87,7 +87,7 @@ async def select_theme_callback(cb: CallbackQuery, state: FSMContext) -> None:
 async def settings_handler(ms: Message, state: FSMContext) -> None:
     user_id = ms.from_user is not None and ms.from_user.id
 
-    user_settings = container.db_users.get_user_settigs(user_id)
+    user_settings = await container.db_users.get_user_settigs(user_id)
     keyboard = build_settings_keyboard(user_settings)
 
     await ms.answer(settings_text)
@@ -107,15 +107,17 @@ async def change_settings(cb: CallbackQuery, state: FSMContext) -> None:
         return
 
     user_id = cb.from_user.id
-    user_settings = container.db_users.get_user_settigs(user_id)
+    user_settings = await container.db_users.get_user_settigs(user_id)
     message_id = (await state.get_data()).get("message_id")
 
     # Переключаем настройку
     current_value = user_settings.get(user_action)
-    container.db_users.change_user_settings(user_action, not current_value, user_id)
+    await container.db_users.change_user_settings(
+        user_action, not current_value, user_id
+    )
 
     # Обновляем настройки и клавиатуру
-    user_settings = container.db_users.get_user_settigs(user_id)
+    user_settings = await container.db_users.get_user_settigs(user_id)
     keyboard = build_settings_keyboard(user_settings)
 
     chat_id = cb.message.chat.id if cb.message is not None else -1

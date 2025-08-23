@@ -179,7 +179,7 @@ class ScheduleService:
                 )
                 continue
 
-            user_theme = container.db_users.get_theme_by_user_id(user_id)
+            user_theme = await container.db_users.get_theme_by_user_id(user_id)
             user_theme = "Classic" if user_theme not in themes_names else user_theme
 
             image_creator = ImageCreator()

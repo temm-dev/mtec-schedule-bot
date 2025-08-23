@@ -72,15 +72,15 @@ class EJournalScraper:
         search_form = soup.find("form", class_="d-flex", role="search")
         if search_form:
             search_form.decompose()
-        
+
         br_tag = soup.find("br")
         if br_tag:
             br_tag.decompose()
-        
+
         br_tag = soup.find("br")
         if br_tag:
             br_tag.decompose()
-        
+
         div_container = soup.find("div", class_="container w-70")
         if div_container:
             div_container.decompose()
@@ -96,7 +96,7 @@ class EJournalScraper:
 
         if nav_tag:
             nav_tag.decompose()
-        
+
         if div_tag:
             div_tag.decompose()
 
@@ -239,11 +239,11 @@ class JournalFileProcessor:
             await container.bot.send_message(user_id, getting_data_journal_text)
 
             # Получение данных пользователя
-            info = container.db_users.get_user_ejournal_info(user_id)
-            user_settings = container.db_users.get_user_settigs(user_id)
+            info = await container.db_users.get_user_ejournal_info(user_id)
+            user_settings = await container.db_users.get_user_settigs(user_id)
 
             login_data = {"login": info[0], "password": info[1], "submit": "Войти"}
-            all_semesters_flag = bool(user_settings["all_semesters"]) or all_semesters
+            all_semesters_flag = user_settings["all_semesters"]
 
             # Получение журнала
             success = await EJournalScraper.fetch_journal(

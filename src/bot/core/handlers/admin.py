@@ -55,45 +55,17 @@ async def admin_panel_handler(ms: Message, state: FSMContext) -> None:
 @router.callback_query(GetDBUsersFilter())
 @event_handler()
 async def get_db_users_callback(cb: CallbackQuery, state: FSMContext) -> None:
-    data_db_users = container.db_users.cur.execute("""SELECT * FROM Users""").fetchall()
-    with open(f"{PATH_DBs}db_users.txt", "w") as file:
-        for data in data_db_users:
-            file.write(str(data))
-            file.write("\n")
-            file.write("\n")
-
     await container.bot.send_document(
         ADMIN, FSInputFile(path=f"{PATH_DBs}mtec_users.db")
     )
-    await container.bot.send_document(
-        ADMIN, FSInputFile(path=f"{PATH_DBs}db_users.txt")
-    )
-
-    if os.path.exists(f"{PATH_DBs}db_users.txt"):
-        os.remove(f"{PATH_DBs}db_users.txt")
 
 
 @router.callback_query(GetDBHashesFilter())
 @event_handler()
 async def get_db_hashes_callback(cb: CallbackQuery, state: FSMContext) -> None:
-    data_db_hashes = container.db_hashes.cur.execute(
-        """SELECT * FROM schedule_hashes"""
-    ).fetchall()
-    with open(f"{PATH_DBs}db_schedule_hashes.txt", "w") as file:
-        for data in data_db_hashes:
-            file.write(str(data))
-            file.write("\n")
-            file.write("\n")
-
     await container.bot.send_document(
         ADMIN, FSInputFile(path=f"{PATH_DBs}schedule_hashes.db")
     )
-    await container.bot.send_document(
-        ADMIN, FSInputFile(path=f"{PATH_DBs}db_schedule_hashes.txt")
-    )
-
-    if os.path.exists(f"{PATH_DBs}db_schedule_hashes.txt"):
-        os.remove(f"{PATH_DBs}db_schedule_hashes.txt")
 
 
 @router.callback_query(GetLogsFilter())
@@ -231,7 +203,7 @@ async def send_message_group_select_group(cb: CallbackQuery, state: FSMContext) 
     if not isinstance(group, str):
         return
 
-    users_id = container.db_users.get_users_by_group(group)
+    users_id = await container.db_users.get_users_by_group(group)
 
     if not users_id:
         await container.bot.send_message(
