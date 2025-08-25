@@ -92,6 +92,17 @@ class DatabaseUsers:
 
         return users_id
 
+    async def change_user_group(self, user_id: int, user_group: str) -> None:
+        """Method for changing the user's group"""
+        async with self.lock:
+            async with self.db.execute(
+                """UPDATE Users SET user_group = ? WHERE user_id = ? """,
+                (user_group, user_id),
+            ):
+                await self.db.commit()
+
+        print(f"👤 Группа пользователя изменена | {user_id} - {user_group} | ℹ️")
+
     async def get_users_by_theme(self, group: str, theme: str = "Classic") -> list[int]:
         """A method for getting users from a group by topic"""
         async with self.lock:
