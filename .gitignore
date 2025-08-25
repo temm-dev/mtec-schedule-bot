@@ -5,9 +5,5 @@ scripts/
 tests/
 workspace/
 extras/
-fortests.db
-mtec_users.db
-mtec_users_last.db
-mtec_users_mentors.db
-schedule_hashes.db
+*.db
 secret.key
