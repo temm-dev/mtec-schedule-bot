@@ -49,12 +49,12 @@ class DatabaseUsers:
             ):
                 await self.db.commit()
 
-    async def check_user_in_db(self, user_id: int, user_group: str) -> bool:
+    async def check_user_in_db(self, user_id: int) -> bool:
         """A method for verifying the presence of a user in the database"""
         async with self.lock:
             async with self.db.execute(
-                f"""SELECT user_id FROM Users WHERE user_id == ? AND user_group == ? """,
-                (user_id, user_group),
+                f"""SELECT user_id FROM Users WHERE user_id == ?""",
+                (user_id,),
             ) as cursor:
                 user_in = await cursor.fetchone()
 
@@ -224,22 +224,12 @@ class DatabaseUsers:
         """Method for adding a user to the database"""
         async with self.lock:
             async with self.db.execute(
-                f"""SELECT user_id FROM Users WHERE user_id == ? """,
-                (user_id,),
-            ) as cursor:
-                user_in = await cursor.fetchall()
+                f"""INSERT INTO Users (user_id, user_group, user_theme, ejournal_name, ejournal_password) VALUES(?, ?, ?, ?, ?)""",
+                (user_id, user_group, user_theme, ejournal_name, ejournal_password),
+            ):
+                await self.db.commit()
 
-        if not any(user_in):
-            async with self.lock:
-                async with self.db.execute(
-                    f"""INSERT INTO Users (user_id, user_group, user_theme, ejournal_name, ejournal_password) VALUES(?, ?, ?, ?, ?)""",
-                    (user_id, user_group, user_theme, ejournal_name, ejournal_password),
-                ):
-                    await self.db.commit()
-
-            print(f"Пользователь | {user_id} - {user_group} | добавлен")
-        else:
-            print(f"Пользователь | {user_id} - {user_group} | существует")
+            print(f"👤 Пользователь | {user_id} - {user_group} | добавлен 🆕")
 
     async def delete_user_from_db(self, user_id: int) -> None:
         """A method for deleting a user from the database"""
