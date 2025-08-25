@@ -3,6 +3,7 @@ from typing import Union
 
 from config.bot_config import ADMIN
 from core.dependencies import container
+from aiolimiter import AsyncLimiter
 
 
 class MessageSender:
@@ -10,6 +11,9 @@ class MessageSender:
 
     PARSE_MODE = "HTML"
     SEND_DELAY = 0.1
+
+    def __init__(self) -> None:
+        self.limiter = AsyncLimiter(10, 3)
 
     @classmethod
     async def _send_single_message(
@@ -25,6 +29,8 @@ class MessageSender:
                 await container.bot.send_message(
                     ADMIN, f"{user_id} - Сообщение доставлено ✅"
                 )
+            
+            print(f"{user_id} - Сообщение доставлено ✅")
             return True
 
         except Exception as e:
@@ -32,6 +38,7 @@ class MessageSender:
                 await container.bot.send_message(
                     ADMIN, f"{user_id} - Ошибка доставки ❌\n{str(e)}"
                 )
+            print(f"{user_id} - Сообщение не доставлено ❌\n{e}")
             return False
 
     @classmethod
@@ -39,34 +46,32 @@ class MessageSender:
         """Sends a message to one user with a report to the admin"""
         await cls._send_single_message(user_id, message, report_to_admin=True)
 
-    @classmethod
-    async def send_message_to_all_users(cls, message: str) -> None:
+    async def send_message_to_all_users(self, message: str) -> None:
         """A method for sending a message to all users"""
         users_id = await container.db_users.get_users()
         failed_users = []
 
         for user_id in users_id:
-            success = await cls._send_single_message(user_id, message)
-            if not success:
-                failed_users.append(user_id)
-            await asyncio.sleep(cls.SEND_DELAY)
+            async with self.limiter:
+                success = await self._send_single_message(user_id, message)
+                if not success:
+                    failed_users.append(user_id)
 
         if failed_users:
             print(
                 f"Сообщение не доставлено {len(failed_users)} пользователям\n{failed_users}"
             )
 
-    @classmethod
-    async def send_message_to_group(cls, group: str, message: str) -> None:
+    async def send_message_to_group(self, group: str, message: str) -> None:
         """A method for sending a message to a group of users"""
         users_id = await container.db_users.get_users_by_group(group)
         failed_users = []
 
         for user_id in users_id:
-            success = await cls._send_single_message(user_id, message)
-            if not success:
-                failed_users.append(user_id)
-            await asyncio.sleep(cls.SEND_DELAY)
+            async with self.limiter:
+                success = await self._send_single_message(user_id, message)
+                if not success:
+                    failed_users.append(user_id)
 
         if failed_users:
-            print(f"Сообщение не доставлено {len(failed_users)} пользователям группы")
+            print(f"Сообщение не доставлено {len(failed_users)} пользователям группы\n{failed_users}")
