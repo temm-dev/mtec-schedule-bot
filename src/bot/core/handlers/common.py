@@ -34,14 +34,6 @@ def register(dp: Dispatcher):
     dp.include_router(router)
 
 
-async def check_user_in_db(user_id: int, user_group: str) -> None:
-    if await container.db_users.check_user_in_db(user_id, user_group):
-        await container.db_users.add_user_into_db(user_id, user_group)
-    else:
-        await container.db_users.delete_user_from_db(user_id)
-        await container.db_users.add_user_into_db(user_id, user_group)
-
-
 @router.callback_query(LegalInformationFilter())
 @event_handler(admin_check=False, clear_state=True)
 async def legal_information_callback(cb: CallbackQuery, state: FSMContext) -> None:
@@ -78,10 +70,13 @@ async def restart_bot_handler(ms: Message, state: FSMContext) -> None:
 @router.message(Command("start"))
 @event_handler(admin_check=False)
 async def start_handler(ms: Message, state: FSMContext) -> None:
-    message = await ms.answer(
-        text=welcome_text, reply_markup=inline_markup_select_group
+    message1 = await ms.answer(text=welcome_text)
+
+    message2 = await ms.answer(
+        text=select_group_text, reply_markup=inline_markup_select_group
     )
-    await state.update_data(message_id=message.message_id)
+
+    await state.update_data(messages_id=[message1.message_id, message2.message_id])
     await state.set_state(SelectGroupFSM.select_group)
 
 
@@ -94,26 +89,36 @@ async def selected_group_callback(cb: CallbackQuery, state: FSMContext) -> None:
     if not isinstance(user_group, str):
         return None
 
-    await check_user_in_db(user_id, user_group)
+    user_in: bool = await container.db_users.check_user_in_db(user_id)
+
+    if not user_in:
+        await container.db_users.add_user_into_db(user_id, user_group)
+    else:
+        await container.db_users.change_user_group(user_id, user_group)
 
     state_data = await state.get_data()
-    message_need_edit_id = state_data.get("message_id")
+    messages_need_delete_id = state_data.get("messages_id")
     chat_id = cb.message.chat.id if cb.message is not None else -1
 
-    await container.bot.edit_message_text(
-        chat_id=chat_id,
-        message_id=message_need_edit_id,
-        text=selected_group_text.format(user_group=user_group),
+    if messages_need_delete_id:
+        await container.bot.delete_messages(
+            chat_id=chat_id, message_ids=messages_need_delete_id
+        )
+
+    await container.bot.send_message(
+        user_id,
+        selected_group_text.format(user_group=user_group),
+        reply_markup=reply_markup_additional_functions,
         parse_mode="HTML",
+    )
+
+    await container.bot.send_message(
+        user_id,
+        selected_group_next_text,
         reply_markup=inline_markup_additional_functions,
     )
 
     await state.clear()
-    await container.bot.send_message(
-        user_id,
-        invisible_symbol,
-        reply_markup=reply_markup_additional_functions,
-    )
 
     await schedule_service.send_schedule_by_group(user_id, user_group)
 
@@ -169,7 +174,6 @@ async def technical_support_next_handler(ms: Message, state: FSMContext) -> None
 
     if not isinstance(need_to_delete, list):
         return None
-    
 
     if ms.from_user is None:
         return
