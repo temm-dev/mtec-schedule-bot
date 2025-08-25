@@ -119,7 +119,7 @@ async def block_user_enter_id(ms: Message, state: FSMContext) -> None:
 
 @router.callback_query(SendMessageUserFilter())
 @event_handler()
-async def send_message_user(state: FSMContext) -> None:
+async def send_message_user(cb: CallbackQuery, state: FSMContext) -> None:
     await container.bot.send_message(ADMIN, send_message_user_text, parse_mode="HTML")
     await state.set_state(SendMessageUserFSM.send_message_enter_id)
 
@@ -162,7 +162,7 @@ async def send_message_user_enter_message(ms: Message, state: FSMContext) -> Non
 
 @router.callback_query(SendMessageUsersFilter())
 @event_handler()
-async def send_message_users(state: FSMContext) -> None:
+async def send_message_users(cb: CallbackQuery, state: FSMContext) -> None:
     await container.bot.send_message(
         ADMIN, send_message_all_users_text, parse_mode="HTML"
     )
@@ -185,7 +185,7 @@ async def send_message_users_enter_message(ms: Message, state: FSMContext) -> No
 
 @router.callback_query(SendMessageGroupFilter())
 @event_handler()
-async def send_message_group(state: FSMContext) -> None:
+async def send_message_group(cb: CallbackQuery, state: FSMContext) -> None:
     await container.bot.send_message(
         ADMIN,
         send_message_group_text,
