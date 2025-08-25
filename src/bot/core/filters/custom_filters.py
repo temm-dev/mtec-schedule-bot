@@ -45,14 +45,14 @@ class BlockUserFilter(Filter):
 
 class SendMessageUserFilter(Filter):
     async def __call__(self, cb: CallbackQuery) -> bool:
-        return cb.data == "Сообщение 👤 (user)" and cb.from_user.id == ADMIN
+        return cb.data == "Сообщение 👤" and cb.from_user.id == ADMIN
 
 
 class SendMessageUsersFilter(Filter):
     async def __call__(self, cb: CallbackQuery) -> bool:
-        return cb.data == "Сообщение 👥 (users)" and cb.from_user.id == ADMIN
+        return cb.data == "Сообщение 👥" and cb.from_user.id == ADMIN
 
 
 class SendMessageGroupFilter(Filter):
     async def __call__(self, cb: CallbackQuery) -> bool:
-        return cb.data == "Сообщение 🫂 (group)" and cb.from_user.id == ADMIN
+        return cb.data == "Сообщение 🫂" and cb.from_user.id == ADMIN

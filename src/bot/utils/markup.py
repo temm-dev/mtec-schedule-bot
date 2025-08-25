@@ -134,15 +134,15 @@ inline_admin_panel_tools_list = [
     [
         InlineKeyboardButton(text="🚫 Заблокировать", callback_data="🚫 Заблокировать"),
         InlineKeyboardButton(
-            text="Сообщение 👤 (user)", callback_data="Сообщение 👤 (user)"
+            text="Сообщение 👤", callback_data="Сообщение 👤"
         ),
     ],
     [
         InlineKeyboardButton(
-            text="Сообщение 👥 (users)", callback_data="Сообщение 👥 (users)"
+            text="Сообщение 👥", callback_data="Сообщение 👥"
         ),
         InlineKeyboardButton(
-            text="Сообщение 🫂 (group)", callback_data="Сообщение 🫂 (group)p"
+            text="Сообщение 🫂", callback_data="Сообщение 🫂"
         ),
     ],
 ]
