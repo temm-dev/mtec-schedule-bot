@@ -107,7 +107,7 @@ class DatabaseUsers:
         """A method for getting users from a group by topic"""
         async with self.lock:
             async with self.db.execute(
-                f"""SELECT user_id FROM Users WHERE user_group == ? AND user_theme == ? """,
+                f"""SELECT user_id FROM Users WHERE user_group == ? AND user_theme == ? AND toggle_schedule == 0 """,
                 (group, theme),
             ) as cursor:
                 data = await cursor.fetchall()
