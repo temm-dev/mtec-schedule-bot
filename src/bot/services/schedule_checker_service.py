@@ -65,8 +65,6 @@ class ScheduleChecker:
         """A method for schedule processing"""
         actual_dates = await self.schedule_service.get_dates_schedule()
 
-        # actual_dates = ["05.07.2025"]
-
         with open(f"{WORKSPACE}current_date.txt", "r") as file:
             current_dates = file.read().splitlines()
 
@@ -143,7 +141,7 @@ class ScheduleChecker:
         while attempt <= 3:
             try:
                 await self.bot.send_photo(
-                    user_id, photo=photo, caption=caption, disable_notification=True
+                    user_id, photo=photo, caption=caption, disable_notification=bool(caption)
                 )
                 return True
 
@@ -156,7 +154,9 @@ class ScheduleChecker:
 
             except Exception as e:
                 attempt += 1
-                print(f"Ошибка send_photo для {user_id}")
+                print(
+                    f"\t\t🟥 attempt({attempt}) - Ошибка при отправке {user_id}"
+                )
 
     async def get_all_schedule(self, dates: list[str]) -> dict[str, list[list]]:
         """A method for getting a schedule for each group"""
@@ -280,7 +280,7 @@ class ScheduleChecker:
                     except Exception as e:
                         attempt += 1
                         print(
-                            f"\t\t🟥 attempt({attempt}) - Ошибка при отправке {user_id} - {group}\n"
+                            f"\t\t🟥 attempt({attempt}) - Ошибка при отправке {user_id} - {group}"
                         )
 
     async def _send_schedule(
@@ -296,8 +296,8 @@ class ScheduleChecker:
             for chunk in user_chunks:
                 tasks = []
                 for user_id in chunk:
-                    tasks.append(print_sent(user_id))
                     tasks.append(self.safe_send_photo(user_id, photo, updated_schedule))
+                    tasks.append(print_sent(user_id))
 
                 for task in tasks:
                     async with self.limiter:
