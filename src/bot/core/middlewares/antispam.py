@@ -6,7 +6,7 @@ from aiogram.types import Message
 
 
 class AntiSpamMiddleware(BaseMiddleware):
-    def __init__(self, limit=5, interval=15):
+    def __init__(self, limit=7, interval=30):
         self.user_timestamps = defaultdict(list)
         self.limit = limit
         self.interval = interval
