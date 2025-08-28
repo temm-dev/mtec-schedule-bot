@@ -1,5 +1,3 @@
-import asyncio
-
 from aiogram import Dispatcher, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -13,7 +11,6 @@ from ..fsm.states import SelectGroupFriendFSM
 from ..middlewares.antispam import AntiSpamMiddleware
 from ..middlewares.blacklist import BlacklistMiddleware
 from .decorators import event_handler
-
 
 router = Router()
 router.message.middleware(BlacklistMiddleware())
@@ -84,7 +81,9 @@ async def schedule_friend_check(cb: CallbackQuery, state: FSMContext) -> None:
     await container.bot.edit_message_text(
         chat_id=chat_id,
         message_id=message_need_edit_id,
-        text="👥 Выбрана группа: <b>{friend_group}</b>".format(friend_group=friend_group),
+        text="👥 Выбрана группа: <b>{friend_group}</b>".format(
+            friend_group=friend_group
+        ),
         parse_mode="HTML",
         reply_markup=None,
     )

@@ -1,7 +1,7 @@
+import asyncio
 import logging
 import os
 import re
-import asyncio
 
 import aiohttp
 from aiogram.types import FSInputFile
@@ -237,7 +237,9 @@ class JournalFileProcessor:
         from core.dependencies import container
 
         try:
-            message1 = await container.bot.send_message(user_id, getting_data_journal_text)
+            message1 = await container.bot.send_message(
+                user_id, getting_data_journal_text
+            )
 
             # Получение данных пользователя
             info = await container.db_users.get_user_ejournal_info(user_id)
@@ -264,7 +266,9 @@ class JournalFileProcessor:
             if os.path.exists(file_path):
                 await container.bot.send_document(user_id, FSInputFile(path=file_path))
                 await asyncio.sleep(0.3)
-                await container.bot.delete_messages(user_id, [message1.message_id, message2.message_id])
+                await container.bot.delete_messages(
+                    user_id, [message1.message_id, message2.message_id]
+                )
             else:
                 await container.bot.send_message(user_id, error_sending_file_text)
 

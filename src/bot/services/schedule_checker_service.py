@@ -141,7 +141,10 @@ class ScheduleChecker:
         while attempt <= 3:
             try:
                 await self.bot.send_photo(
-                    user_id, photo=photo, caption=caption, disable_notification=bool(caption)
+                    user_id,
+                    photo=photo,
+                    caption=caption,
+                    disable_notification=bool(caption),
                 )
                 return True
 
@@ -154,9 +157,7 @@ class ScheduleChecker:
 
             except Exception as e:
                 attempt += 1
-                print(
-                    f"\t\t🟥 attempt({attempt}) - Ошибка при отправке {user_id}"
-                )
+                print(f"\t\t🟥 attempt({attempt}) - Ошибка при отправке {user_id}")
 
     async def get_all_schedule(self, dates: list[str]) -> dict[str, list[list]]:
         """A method for getting a schedule for each group"""
@@ -266,7 +267,7 @@ class ScheduleChecker:
                             user_id,
                             no_schedule_for_date.format(group=group, date=date),
                             parse_mode="HTML",
-                            disable_notification=True
+                            disable_notification=True,
                         )
                         break
 

@@ -1,9 +1,8 @@
-import asyncio
 from typing import Union
 
+from aiolimiter import AsyncLimiter
 from config.bot_config import ADMIN
 from core.dependencies import container
-from aiolimiter import AsyncLimiter
 
 
 class MessageSender:
@@ -29,7 +28,7 @@ class MessageSender:
                 await container.bot.send_message(
                     ADMIN, f"{user_id} - Сообщение доставлено ✅"
                 )
-            
+
             print(f"{user_id} - Сообщение доставлено ✅")
             return True
 
@@ -74,4 +73,6 @@ class MessageSender:
                     failed_users.append(user_id)
 
         if failed_users:
-            print(f"Сообщение не доставлено {len(failed_users)} пользователям группы\n{failed_users}")
+            print(
+                f"Сообщение не доставлено {len(failed_users)} пользователям группы\n{failed_users}"
+            )
