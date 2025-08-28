@@ -1,3 +1,5 @@
+import asyncio
+
 from aiogram import Dispatcher, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -11,6 +13,7 @@ from ..fsm.states import SelectGroupFriendFSM
 from ..middlewares.antispam import AntiSpamMiddleware
 from ..middlewares.blacklist import BlacklistMiddleware
 from .decorators import event_handler
+
 
 router = Router()
 router.message.middleware(BlacklistMiddleware())
@@ -26,12 +29,14 @@ def register(dp: Dispatcher):
 @router.message(Command("resend_schedule"))
 @event_handler(admin_check=False)
 async def resend_schedule_handler(ms: Message, state: FSMContext) -> None:
-    await ms.answer(checking_schedule_text)
+    message = await ms.answer(checking_schedule_text)
 
     user_id = ms.from_user is not None and ms.from_user.id
     user_group = await container.db_users.get_group_by_user_id(user_id)
 
     await schedule_service.send_schedule_by_group(user_id, user_group, "_resend")
+
+    await container.bot.delete_message(user_id, message.message_id)
 
 
 @router.message(F.text == "🕒 Расписание звонков")
@@ -74,6 +79,14 @@ async def schedule_friend_check(cb: CallbackQuery, state: FSMContext) -> None:
 
     await schedule_service.send_schedule_by_group(
         user_id, friend_group, "_friend_schedule"
+    )
+
+    await container.bot.edit_message_text(
+        chat_id=chat_id,
+        message_id=message_need_edit_id,
+        text="👥 Выбрана группа: <b>{friend_group}</b>".format(friend_group=friend_group),
+        parse_mode="HTML",
+        reply_markup=None,
     )
 
     await state.clear()
