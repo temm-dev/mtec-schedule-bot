@@ -164,7 +164,7 @@ class ScheduleService:
             await container.bot.send_message(user_id, no_schedule)
             return
 
-        await container.bot.send_message(user_id, have_schedule)
+        message = await container.bot.send_message(user_id, have_schedule)
 
         for date in actual_dates:
             data = await cls.get_schedule(user_group, date)
@@ -177,6 +177,8 @@ class ScheduleService:
                     no_schedule_text.format(date=date, day=day),
                     parse_mode="HTML",
                 )
+                await asyncio.sleep(0.3)
+                await container.bot.delete_message(user_id, message.message_id)
                 continue
 
             user_theme = await container.db_users.get_theme_by_user_id(user_id)
@@ -193,8 +195,12 @@ class ScheduleService:
 
             photo = FSInputFile(path=f"{WORKSPACE}{user_id}{filename}.jpeg")
             await container.bot.send_photo(user_id, photo)
+
             (
                 os.remove(f"{WORKSPACE}{user_id}{filename}.jpeg")
                 if os.path.exists(f"{WORKSPACE}{user_id}{filename}.jpeg")
                 else False
             )
+
+            await asyncio.sleep(0.5)
+            await container.bot.delete_message(user_id, message.message_id)
