@@ -133,17 +133,11 @@ inline_admin_panel_tools_list = [
     [InlineKeyboardButton(text="⼈ USERS ⼈", callback_data="⼈ USERS ⼈")],
     [
         InlineKeyboardButton(text="🚫 Заблокировать", callback_data="🚫 Заблокировать"),
-        InlineKeyboardButton(
-            text="Сообщение 👤", callback_data="Сообщение 👤"
-        ),
+        InlineKeyboardButton(text="Сообщение 👤", callback_data="Сообщение 👤"),
     ],
     [
-        InlineKeyboardButton(
-            text="Сообщение 👥", callback_data="Сообщение 👥"
-        ),
-        InlineKeyboardButton(
-            text="Сообщение 🫂", callback_data="Сообщение 🫂"
-        ),
+        InlineKeyboardButton(text="Сообщение 👥", callback_data="Сообщение 👥"),
+        InlineKeyboardButton(text="Сообщение 🫂", callback_data="Сообщение 🫂"),
     ],
 ]
 inline_markup_admin_panel_tools = InlineKeyboardMarkup(
