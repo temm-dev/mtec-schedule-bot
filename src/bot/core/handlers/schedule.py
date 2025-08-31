@@ -36,6 +36,7 @@ async def resend_schedule_handler(ms: Message, state: FSMContext) -> None:
     await container.bot.delete_message(user_id, message.message_id)
 
 
+@router.message(F.text == "🔔 Расписание звонков")
 @router.message(F.text == "🕒 Расписание звонков")
 @event_handler(admin_check=False)
 async def send_call_schedule_handler(ms: Message, state: FSMContext) -> None:

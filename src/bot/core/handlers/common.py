@@ -133,6 +133,7 @@ async def change_group_handler(ms: Message, state: FSMContext) -> None:
     await state.set_state(SelectGroupFSM.select_group)
 
 
+@router.message(F.text == "🛠️ Дополнительно")
 @router.message(F.text == "🔍 Дополнительно")
 @event_handler(admin_check=False)
 async def additionally_handler(ms: Message, state: FSMContext) -> None:
@@ -150,6 +151,7 @@ async def additionally_handler(ms: Message, state: FSMContext) -> None:
 
 
 @router.message(Command("support"))
+@router.message(F.text == "🦺 Тех. поддержка")
 @router.message(F.text == "❓ Помощь")
 @event_handler(admin_check=False)
 async def technical_support_handler(ms: Message, state: FSMContext) -> None:
