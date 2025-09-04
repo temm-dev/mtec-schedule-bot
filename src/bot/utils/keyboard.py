@@ -8,7 +8,7 @@ def build_inline_keyboard(list_items: list[str]) -> list[InlineKeyboardButton]:
     for group in list_items:
         btns.append(InlineKeyboardButton(text=group, callback_data=group))
 
-        if len(btns) % 2 == 0:
+        if len(btns) % 3 == 0:
             inline_keyboard_buttons.append(btns)
             btns = []
 
