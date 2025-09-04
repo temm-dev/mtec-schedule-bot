@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import re
 
 from aiogram.types import (
     FSInputFile,
@@ -15,6 +16,15 @@ from config.themes import paths_to_photo_theme, themes_parameters
 from .keyboard import build_inline_keyboard
 
 
+def sort_key(group):
+    match = re.match(r"([A-ZА-Я]+)(\d+)", group)
+    if match:
+        letters = match.group(1)
+        numbers = match.group(2)
+        return (letters, int(numbers))
+    return (group, 0)
+
+
 async def get_groups_schedule_wrapper() -> list[str]:
     from services.schedule_service import ScheduleService
 
@@ -23,6 +33,7 @@ async def get_groups_schedule_wrapper() -> list[str]:
 
 async def create_groups_keyboard():
     groups = await get_groups_schedule_wrapper()
+    groups = sorted(set(groups), key=sort_key)
     return InlineKeyboardMarkup(inline_keyboard=build_inline_keyboard(groups))  # type: ignore
 
 
