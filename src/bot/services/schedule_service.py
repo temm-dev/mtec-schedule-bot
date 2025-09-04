@@ -114,7 +114,7 @@ class ScheduleService:
                 print("Response is not 'str' type - get_groups_schedule")
                 return []
 
-            group_pattern=r"([A-ZА-Я]+\d{1,3})"
+            group_pattern = r"([A-ZА-Я]+\d{1,3})"
             groups = re.findall(group_pattern, response)
 
             return groups
@@ -123,7 +123,7 @@ class ScheduleService:
             return []
 
     @classmethod
-    async def get_schedule(cls, group: str, date: str) -> list[list[str]]: # TODO
+    async def get_schedule(cls, group: str, date: str) -> list[list[str]]:  # TODO
         """Gets the schedule for the specified group by date"""
         cls._validation_arguments(group, date)
 
