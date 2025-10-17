@@ -77,6 +77,11 @@ inline_additional_functions_list_extended = [
 inline_additional_functions_bot = [
     [
         InlineKeyboardButton(
+            text="⚙️ Настройки", callback_data="⚙️ Настройки"
+        )
+    ],
+    [
+        InlineKeyboardButton(
             text="❗ Правовая информация", callback_data="❗ Правовая информация"
         )
     ]
@@ -112,11 +117,10 @@ inline_markup_additional_functions_social_networks = InlineKeyboardMarkup(
 
 
 reply_additional_functions_list = [
-    [KeyboardButton(text="🕒 Расписание звонков")],
-    [KeyboardButton(text="📙 Электронный журнал")],
-    [KeyboardButton(text="👤 Расписание друга")],
-    [KeyboardButton(text="🔍 Дополнительно"), KeyboardButton(text="⚙️ Настройки")],
-    [KeyboardButton(text="❓ Помощь")],
+    [KeyboardButton(text="🕒 Расписание звонков"), KeyboardButton(text="📚 Моё расписание")],
+    [KeyboardButton(text="👩‍🏫 Расписание преподавателя"), KeyboardButton(text="👥 Расписание группы")],
+    [KeyboardButton(text="📖 Электронный журнал")],
+    [KeyboardButton(text="🔍 Дополнительно"), KeyboardButton(text="💬 Помощь")],
 ]
 
 reply_markup_additional_functions = ReplyKeyboardMarkup(
