@@ -19,8 +19,8 @@ class ScheduleService:
     @staticmethod
     async def _send_request(url: str, headers: dict, data: dict) -> str | None:
         """Method for sending a request to the server"""
-        try:
-            while True:
+        while True:
+            try:
                 async with aiohttp.ClientSession() as session:
                     async with session.post(
                         url=url,
@@ -30,9 +30,9 @@ class ScheduleService:
                         text = await response.text()
 
                 return text
-        except Exception as e:
-            print(f"Ошибка отправки запроса _send_request\n{e}")
-            await asyncio.sleep(1)
+            except Exception as e:
+                print(f"Ошибка отправки запроса _send_request\n{e}")
+                await asyncio.sleep(1)
 
     @staticmethod
     def _validation_arguments(group: str, date: str):
@@ -164,7 +164,7 @@ class ScheduleService:
             await container.bot.send_message(user_id, no_schedule)
             return
 
-        message = await container.bot.send_message(user_id, have_schedule)
+        await container.bot.send_message(user_id, have_schedule)
 
         for date in actual_dates:
             data = await cls.get_schedule(user_group, date)
@@ -177,8 +177,7 @@ class ScheduleService:
                     no_schedule_text.format(date=date, day=day),
                     parse_mode="HTML",
                 )
-                await asyncio.sleep(0.3)
-                await container.bot.delete_message(user_id, message.message_id)
+
                 continue
 
             user_theme = await container.db_users.get_theme_by_user_id(user_id)
@@ -190,6 +189,7 @@ class ScheduleService:
                 date=date,
                 number_rows=len(data) + 1,
                 filename=f"{user_id}{filename}",
+                group=user_group,
                 theme=user_theme,
             )
 
@@ -201,6 +201,3 @@ class ScheduleService:
                 if os.path.exists(f"{WORKSPACE}{user_id}{filename}.jpeg")
                 else False
             )
-
-            await asyncio.sleep(0.5)
-            await container.bot.delete_message(user_id, message.message_id)
