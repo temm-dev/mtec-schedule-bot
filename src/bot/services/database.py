@@ -273,6 +273,39 @@ class DatabaseHashes:
         )
         self.conn.commit()
 
+    def add_hash(self, group_name: str, date: str, hash_value: str) -> bool:
+        """A method for adding a schedule hash to the database"""
+        self.cur.execute(
+            "SELECT hash_value FROM schedule_hashes WHERE group_name = ? AND date = ?",
+            (group_name, date),
+        )
+        result = self.cur.fetchone()
+
+        if result is None:
+            self.cur.execute(
+                """
+                INSERT INTO schedule_hashes (group_name, date, hash_value)
+                VALUES (?, ?, ?)
+                """,
+                    (group_name, date, hash_value)
+            )
+            self.conn.commit()
+            return True
+        
+        return False
+    
+    def change_hash(self, group_name: str, date: str, hash_value: str) -> None:
+        """A method for changing the hash"""
+        self.cur.execute(
+            """
+            UPDATE schedule_hashes
+            SET hash_value = ?
+            WHERE group_name = ? AND date = ?
+            """,
+                (hash_value, group_name, date),
+        )
+        self.conn.commit()
+        
     def check_hash_change(
         self, group_name: str, date: str, hash_value: str
     ) -> bool | None:
@@ -284,32 +317,13 @@ class DatabaseHashes:
         result = self.cur.fetchone()
 
         if result is None:
-            self.cur.execute(
-                """
-            INSERT INTO schedule_hashes (group_name, date, hash_value)
-            VALUES (?, ?, ?)
-            """,
-                (group_name, date, hash_value),
-            )
-
-            self.conn.commit()
-            return None
-
-        elif result[0] != hash_value:
-            self.cur.execute(
-                """
-            UPDATE schedule_hashes
-            SET hash_value = ?
-            WHERE group_name = ? AND date = ?
-            """,
-                (hash_value, group_name, date),
-            )
-
-            self.conn.commit()
-            return True
-
-        else:
+            self.add_hash(group_name, date, hash_value)
             return False
+
+        if result[0] != hash_value:
+            return True
+        
+        return False
 
     def cleanup_old_hashes(self) -> None:
         """A method for deleting old schedule hashes"""
