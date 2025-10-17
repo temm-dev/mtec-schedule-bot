@@ -27,7 +27,9 @@ with open(f"{WORKSPACE}current_date.txt", "w") as file:
 
 async def main():
     container._bot = Bot(token=TOKEN)
-    container._db_users = DatabaseUsers(f"{PATH_DBs}DB.db")
+    await container._bot.delete_webhook(drop_pending_updates=True)
+
+    container._db_users = await DatabaseUsers.create(f"{PATH_DBs}your_db.db")
     container._db_hashes = DatabaseHashes(f"{PATH_DBs}schedule_hashes.db")
 
     from core.handlers import setup_handlers
