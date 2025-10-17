@@ -24,6 +24,7 @@ def register(dp: Dispatcher):
 
 
 @router.message(Command("resend_schedule"))
+@router.message(F.text == "📚 Моё расписание")
 @event_handler(admin_check=False)
 async def resend_schedule_handler(ms: Message, state: FSMContext) -> None:
     message = await ms.answer(checking_schedule_text)
@@ -43,7 +44,7 @@ async def send_call_schedule_handler(ms: Message, state: FSMContext) -> None:
     await ms.answer_media_group(media_call_schedule_photos)
 
 
-@router.message(F.text == "👤 Расписание друга")
+@router.message(F.text == "👥 Расписание группы")
 @event_handler(admin_check=False)
 async def schedule_friend(ms: Message, state: FSMContext) -> None:
     message = await ms.answer(

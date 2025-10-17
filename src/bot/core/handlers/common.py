@@ -153,6 +153,7 @@ async def additionally_handler(ms: Message, state: FSMContext) -> None:
 @router.message(Command("support"))
 @router.message(F.text == "🦺 Тех. поддержка")
 @router.message(F.text == "❓ Помощь")
+@router.message(F.text == "💬 Помощь")
 @event_handler(admin_check=False)
 async def technical_support_handler(ms: Message, state: FSMContext) -> None:
     message1 = await ms.answer(support_text, parse_mode="HTML")
