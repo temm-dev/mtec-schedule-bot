@@ -145,15 +145,15 @@ class ScheduleService:
             return []
     
     @classmethod
-    async def get_mentors_schedule(cls, fcs: str, date: str) -> list[list[str]]:
+    async def get_mentors_schedule(cls, mentor_name: str, date: str) -> list[list[str]]:
         """Gets the schedule for the specified fcs by date"""
-        cls._validation_arguments(fcs, date)
+        cls._validation_arguments(mentor_name, date)
 
         request_data_schedule = {
             "MIME Type": "application/x-www-form-urlencoded; charset=UTF-8",
             "action": "sendSchedule",
             "date": date,
-            "value": fcs,
+            "value": mentor_name,
             "rtype": "prep",
         }
 
