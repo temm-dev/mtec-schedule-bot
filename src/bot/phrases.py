@@ -181,6 +181,12 @@ schedule_group_text = (
 choosen_schedule_group_text = (
     "👥 Выбрана группа: <b>{group}</b>\n⏳ Проверяем наличие расписания..."
 )
+schedule_mentor_text = (
+    "👩‍🏫 Расписание преподавателя\n\nВыберите преподавателя, расписание которого хотите увидеть 📅"
+)
+choosen_schedule_mentor_text = (
+    "👩‍🏫 Выбран преподаватель: <b>{mentor}</b>\n⏳ Проверяем наличие расписания..."
+)
 exit_text = "🛑 Действие отменено"
 
 getting_data_journal_text = "Получение данных журнала... 📙"
