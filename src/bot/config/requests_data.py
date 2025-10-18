@@ -35,3 +35,9 @@ request_data = {
     "action": "getSearchParameters",
     "rtype": "stds",
 }
+
+request_data_mentors = {
+    "MIME Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "action": "getSearchParameters",
+    "rtype": "prep",
+}
