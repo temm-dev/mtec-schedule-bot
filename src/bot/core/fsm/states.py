@@ -8,6 +8,8 @@ class SelectGroupFSM(StatesGroup):
 class SelectGroupScheduleFSM(StatesGroup):
     select_group_schedule = State()
 
+class SelectMentorScheduleFSM(StatesGroup):
+    select_mentor_schedule = State()
 
 class SupportFSM(StatesGroup):
     support = State()
