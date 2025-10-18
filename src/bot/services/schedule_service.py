@@ -137,9 +137,9 @@ class ScheduleService:
                 return []
 
             names_pattern = r'value="([А-Яа-я\s]+)"'
-            names_list = re.findall(names_pattern, response)
+            mentors_names_list = re.findall(names_pattern, response)
 
-            return names_list
+            return mentors_names_list
         except Exception as e:
             print(format_error_message(cls.get_groups_schedule.__name__, e))
             return []
