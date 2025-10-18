@@ -123,7 +123,7 @@ class ScheduleService:
             return []
     
     @classmethod
-    async def get_mentors_schedule(cls) -> list[str]:
+    async def get_names_mentors(cls) -> list[str]:
         """Method for getting available mentors fcs"""
         try:
             request_data["rtype"] = "prep"
@@ -142,6 +142,34 @@ class ScheduleService:
             return names_list
         except Exception as e:
             print(format_error_message(cls.get_groups_schedule.__name__, e))
+            return []
+    
+    @classmethod
+    async def get_mentors_schedule(cls, fcs: str, date: str) -> list[list[str]]:
+        """Gets the schedule for the specified fcs by date"""
+        cls._validation_arguments(fcs, date)
+
+        request_data_schedule = {
+            "MIME Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "action": "sendSchedule",
+            "date": date,
+            "value": fcs,
+            "rtype": "prep",
+        }
+
+        try:
+            response = await cls._send_request(
+                requets_url, base_request_headers, request_data_schedule
+            )
+
+            if not isinstance(response, str):
+                print("Response is not 'str' type - get_schedule")
+                return []
+
+            return cls._parse_schedule_html(response)
+
+        except Exception as e:
+            print(format_error_message(cls.get_schedule.__name__, e))
             return []
 
     @classmethod
