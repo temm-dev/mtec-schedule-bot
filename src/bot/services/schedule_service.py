@@ -121,6 +121,28 @@ class ScheduleService:
         except Exception as e:
             print(format_error_message(cls.get_groups_schedule.__name__, e))
             return []
+    
+    @classmethod
+    async def get_mentors_schedule(cls) -> list[str]:
+        """Method for getting available mentors fcs"""
+        try:
+            request_data["rtype"] = "prep"
+
+            response = await cls._send_request(
+                requets_url, base_request_headers, request_data
+            )
+
+            if not isinstance(response, str):
+                print("Response is not 'str' type - get_groups_schedule")
+                return []
+
+            names_pattern = r'value="([А-Яа-я\s]+)"'
+            names_list = re.findall(names_pattern, response)
+
+            return names_list
+        except Exception as e:
+            print(format_error_message(cls.get_groups_schedule.__name__, e))
+            return []
 
     @classmethod
     async def get_schedule(cls, group: str, date: str) -> list[list[str]]:  # TODO
