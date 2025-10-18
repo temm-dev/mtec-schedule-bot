@@ -14,7 +14,7 @@ from config.paths import PATH_CALL_IMG
 from config.themes import paths_to_photo_theme, themes_parameters
 
 from .keyboard import build_inline_keyboard
-
+from .utils import format_names
 
 def sort_key(group):
     match = re.match(r"([A-ZА-Я]+)(\d+)", group)
@@ -30,17 +30,49 @@ async def get_groups_schedule_wrapper() -> list[str]:
 
     return await ScheduleService().get_groups_schedule()
 
+async def get_mentors_names_schedule_wrapper() -> dict[str, str]:
+    from services.schedule_service import ScheduleService
+
+    mentors_names = await ScheduleService().get_names_mentors()
+    mentors_initials = format_names(mentors_names)
+
+    mentors_dict = dict(zip(mentors_initials, mentors_names))
+
+    return mentors_dict
+
+
+mentors_dict = asyncio.run(get_mentors_names_schedule_wrapper())
+
 
 async def create_groups_keyboard():
     groups = await get_groups_schedule_wrapper()
     groups = sorted(set(groups), key=sort_key)
     return InlineKeyboardMarkup(inline_keyboard=build_inline_keyboard(groups))  # type: ignore
 
+async def create_mentors_names_keyboard():
+    mentors_dict = await get_mentors_names_schedule_wrapper()
+    mentors_names = [ v for _, v in mentors_dict.items() ]
+
+    mentors_names = sorted(set(mentors_names), key=sort_key)
+    return InlineKeyboardMarkup(inline_keyboard=build_inline_keyboard(mentors_names))  # type: ignore
+
+async def create_mentors_fcs_keyboard():
+    mentors_dict = await get_mentors_names_schedule_wrapper()
+    mentors_fcs = [ k for k, _ in mentors_dict.items() ]
+
+    mentors_fcs = sorted(set(mentors_fcs), key=sort_key)
+    return InlineKeyboardMarkup(inline_keyboard=build_inline_keyboard(mentors_fcs))  # type: ignore
+
 
 inline_markup_select_group = asyncio.run(create_groups_keyboard())
+inline_markup_select_mentors_names = asyncio.run(create_mentors_names_keyboard())
+inline_markup_select_mentors_fcs = asyncio.run(create_mentors_fcs_keyboard())
+
+
 inline_markup_select_theme = InlineKeyboardMarkup(
     inline_keyboard=build_inline_keyboard(list(themes_parameters.keys()))  # type: ignore
 )
+
 
 
 inline_additional_functions_list = [
