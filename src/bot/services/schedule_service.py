@@ -6,7 +6,7 @@ from datetime import datetime
 import aiohttp
 from aiogram.types import FSInputFile
 from config.paths import WORKSPACE
-from config.requests_data import base_request_headers, request_data, requets_url
+from config.requests_data import base_request_headers, request_data, requets_url, request_data_mentors
 from config.themes import themes_names
 from phrases import *
 from utils.formatters import format_error_message
@@ -44,7 +44,7 @@ class ScheduleService:
             raise TypeError('The "date" parameter does not equal the str data type.')
 
     @staticmethod
-    def _parse_schedule_html(html_content: str) -> list[list[str]]:
+    def _parse_schedule_group_html(html_content: str) -> list[list[str]]:
         """A method for parsing HTML schedules and returning structured data (crutch)"""
         with open(f"{WORKSPACE}schedule.html", "w") as file:
             file.write(html_content)
@@ -71,6 +71,38 @@ class ScheduleService:
                 room = input_list[i + 3]
                 data.append([pair, subject, room])
 
+        return data
+
+    @staticmethod
+    def _parse_schedule_mentor_html(html_content: str) -> list[list[str]]:
+        """A method for parsing HTML schedules and returning structured data (crutch)"""
+        with open(f"{WORKSPACE}schedule.html", "w") as file:
+            file.write(html_content)
+
+        os.system(f'grep "<td " {WORKSPACE}schedule.html > {WORKSPACE}schedule.txt')
+
+        input_list = []
+        with open(f"{WORKSPACE}schedule.txt", "r") as file:
+            text = file.read()
+            text = text.replace("        ", "")
+            text = text.replace('<td class="has-text-align-center">', '')
+            text = text.replace('</td>', '')
+            text = text.replace('<td class="has-text-align-center text">', '')
+            text = text.replace('<b>', '')
+            text = text.replace('</b>', '')
+            text = text.replace("<br>", "\n")
+            
+            input_list = text.split("\n")
+            input_list = input_list[3:]
+
+        data = []
+        for i in range(0, len(input_list), 5):
+            if i + 4 < len(input_list):
+                pair = input_list[i] + "\nпара"
+                subject = input_list[i+1] + "\n" + input_list[i+2]
+                room = input_list[i+4]
+                data.append([pair, subject, room])
+        
         return data
 
     @classmethod
@@ -126,10 +158,8 @@ class ScheduleService:
     async def get_names_mentors(cls) -> list[str]:
         """Method for getting available mentors fcs"""
         try:
-            request_data["rtype"] = "prep"
-
             response = await cls._send_request(
-                requets_url, base_request_headers, request_data
+                requets_url, base_request_headers, request_data_mentors
             )
 
             if not isinstance(response, str):
@@ -166,14 +196,66 @@ class ScheduleService:
                 print("Response is not 'str' type - get_schedule")
                 return []
 
-            return cls._parse_schedule_html(response)
+            return cls._parse_schedule_mentor_html(response)
 
         except Exception as e:
             print(format_error_message(cls.get_schedule.__name__, e))
             return []
 
     @classmethod
-    async def get_schedule(cls, group: str, date: str) -> list[list[str]]:  # TODO
+    async def send_mentor_schedule(
+        cls, user_id: int, mentor_name: str, filename: str = ""
+    ) -> None:
+        """A method for sending schedules by group"""
+        from core.dependencies import container
+        from services.image_service import ImageCreator
+
+        actual_dates = await cls.get_dates_schedule(actual_dates=False)
+
+        if not any(actual_dates):
+            await container.bot.send_message(user_id, no_schedule)
+            return
+
+        await container.bot.send_message(user_id, have_schedule)
+
+        for date in actual_dates:
+            data = await cls.get_mentors_schedule(mentor_name, date)
+
+            if not any(data):
+                day = day_week_by_date(date)
+                print(no_schedule_text.format(date=date, day=day))
+                await container.bot.send_message(
+                    user_id,
+                    no_schedule_text.format(date=date, day=day),
+                    parse_mode="HTML",
+                )
+
+                continue
+
+            user_theme = await container.db_users.get_theme_by_user_id(user_id)
+            user_theme = "Classic" if user_theme not in themes_names else user_theme
+
+            image_creator = ImageCreator()
+            await image_creator.create_schedule_image(
+                data=data,
+                date=date,
+                number_rows=len(data) + 1,
+                filename=f"{user_id}{filename}",
+                group=mentor_name,
+                theme=user_theme,
+            )
+
+            photo = FSInputFile(path=f"{WORKSPACE}{user_id}{filename}.jpeg")
+            await container.bot.send_photo(user_id, photo)
+
+            (
+                os.remove(f"{WORKSPACE}{user_id}{filename}.jpeg")
+                if os.path.exists(f"{WORKSPACE}{user_id}{filename}.jpeg")
+                else False
+            )
+
+    @classmethod
+    async def get_schedule(cls, group: str, date: str) -> list[list[str]]: # TODO
         """Gets the schedule for the specified group by date"""
         cls._validation_arguments(group, date)
 
@@ -194,7 +276,7 @@ class ScheduleService:
                 print("Response is not 'str' type - get_schedule")
                 return []
 
-            return cls._parse_schedule_html(response)
+            return cls._parse_schedule_group_html(response)
 
         except Exception as e:
             print(format_error_message(cls.get_schedule.__name__, e))
