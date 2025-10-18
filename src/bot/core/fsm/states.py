@@ -5,8 +5,8 @@ class SelectGroupFSM(StatesGroup):
     select_group = State()
 
 
-class SelectGroupFriendFSM(StatesGroup):
-    select_group_friend = State()
+class SelectGroupScheduleFSM(StatesGroup):
+    select_group_schedule = State()
 
 
 class SupportFSM(StatesGroup):
