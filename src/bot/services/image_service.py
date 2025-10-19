@@ -13,8 +13,8 @@ class ImageCreator:
     MAX_TEXT_LENGTH = 200
     TEXT_TRUNCATE_MARKER = "..."
     SUBJECT_WRAP_WIDTH = 35
-    HEADER_FONT_SIZE = 10
-    BASE_FONT_SIZE = 12
+    HEADER_FONT_SIZE = 8
+    BASE_FONT_SIZE = 10
     MIN_FONT_SIZE = 8
 
     def __init__(self) -> None:
@@ -30,7 +30,7 @@ class ImageCreator:
                 "savefig.bbox": "tight",
                 "savefig.format": "jpeg",
                 "font.family": "sans-serif",
-                "font.size": 10,
+                "font.size": 8,
                 "text.color": "black",
                 "axes.edgecolor": "black",
             }
@@ -122,9 +122,9 @@ class ImageCreator:
 
         day_of_week_name = day_week_by_date(date)
 
-        columns = ["№", f"\n{group}\n\n{day_of_week_name}\n{date}\n\nНаименование", "Ауд"]
+        columns = ["№", f"\n{group}\n\n{day_of_week_name} - {date}\n\nНаименование", "Ауд"]
 
-        fig, ax = plt.subplots(figsize=(7, number_rows))
+        fig, ax = plt.subplots(figsize=(7, number_rows+0.5))
         ax.set_axis_off()
 
         tbl = Table(ax, bbox=[0, 0, 1, 1])  # type: ignore
