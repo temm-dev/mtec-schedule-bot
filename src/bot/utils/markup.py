@@ -64,6 +64,14 @@ async def create_mentors_fcs_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=build_inline_keyboard(mentors_fcs))  # type: ignore
 
 
+inline_status_list = [
+    [
+        InlineKeyboardButton(text="👩‍🏫 Преподаватель", callback_data="👩‍🏫 Преподаватель"),
+        InlineKeyboardButton(text="👨‍🎓 Студент", callback_data="👨‍🎓 Студент")
+    ]
+]
+
+inliine_markup_select_status = InlineKeyboardMarkup(inline_keyboard=inline_status_list)
 inline_markup_select_group = asyncio.run(create_groups_keyboard())
 inline_markup_select_mentors_names = asyncio.run(create_mentors_names_keyboard())
 inline_markup_select_mentors_fcs = asyncio.run(create_mentors_fcs_keyboard())
