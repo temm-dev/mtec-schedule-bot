@@ -1,6 +1,14 @@
 from aiogram.fsm.state import State, StatesGroup
 
 
+class SelectStatusFSM(StatesGroup):
+    select_status = State()
+
+
+class SelectMentorFioFSM(StatesGroup):
+    select_mentor_fio = State()
+
+
 class SelectGroupFSM(StatesGroup):
     select_group = State()
 
