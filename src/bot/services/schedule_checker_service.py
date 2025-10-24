@@ -22,7 +22,7 @@ class ScheduleChecker:
     """A class for tracking schedule appearances and changes"""
 
     SLEEP_NIGHT = 3600
-    SLEEP_DAY = 60
+    SLEEP_DAY = 180
     NIGHT_HOURS = (22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8)
 
     def __init__(self, bot, db_users, db_hashes):
@@ -66,7 +66,7 @@ class ScheduleChecker:
         actual_dates = await self.schedule_service.get_dates_schedule()
 
         with open(f"{WORKSPACE}current_date.txt", "r") as file:
-            current_dates = file.read().splitlines()
+            current_dates = list(set(file.read().splitlines()))
 
         print(f"{current_dates} - sended")
         print(f"{actual_dates} - actual")
@@ -79,59 +79,61 @@ class ScheduleChecker:
         if new_dates:
             print(f"\n📆 Расписание появилось! {new_dates}")
             await self.handle_new_schedules(new_dates, actual_dates)
+        
+            with open(f"{WORKSPACE}current_date.txt", "r") as file:
+                current_dates = list(set(file.read().splitlines()))
+
 
         updated_current_dates = list(
-            set(current_dates) & set(actual_dates)
+           set(current_dates) & set(actual_dates)
         )  # Только общие даты
 
-        groups_schedule = await self.get_all_schedule(updated_current_dates)
-        await self.check_schedule_change(groups_schedule)
+        groups = await self.db_users.get_groups()
+
+        for group in groups:
+           for date in updated_current_dates:
+               schedule = await self.schedule_service.get_schedule(group, date)
+
+               await self.check_schedule_change(group, date, schedule) # type: ignore
 
     async def handle_new_schedules(
         self, new_dates: list[str], actual_dates: list[str]
     ) -> None:
         """A method for processing the schedule that appears"""
-        groups_schedule = await self.get_all_schedule(
-            new_dates
-        )  # Получение расписания для каждой группы
-
-        await self.check_schedule_change(
-            groups_schedule
-        )  # Добавление хешей расписания в базу данных
+        groups = await self.db_users.get_groups()
 
         start_send_time = time.time()
 
-        await self.send_schedule(groups_schedule)  # Начало рассылки расписания
+        await self.send_schedule(new_dates, groups)  # Начало рассылки расписания
 
         end_send_time = time.time()
 
-        with open(f"{WORKSPACE}current_date.txt", "w") as file:
+        with open(f"{WORKSPACE}current_date.txt", "a") as file:
+            file.write("\n")
             file.write("\n".join(actual_dates))
 
+        total_seconds = end_send_time - start_send_time
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+
         print("\nРасписание отправлено ✅")
-        print(f"Затраченное время: {end_send_time - start_send_time}")
+        print(f"Затраченное время: {minutes}m {seconds:2f}s - {total_seconds}s")
 
     async def check_schedule_change(
-        self, groups_schedule: dict[str, list[list]]
+        self, group: str, date: str, schedule: list[list[str]]
     ) -> None:
         """A method for tracking schedule changes"""
         try:
-            for group_date, schedule in groups_schedule.items():
-                data = group_date.split(" ")
-                group = data[0]
-                date = data[1]
+            hash_value: str = await generate_hash(schedule)
 
-                hash_value: str = await generate_hash(schedule)
+            if self.db_hashes.check_hash_change(group, date, hash_value) == True:
+                print(f"Расписание у группы {group} - {date} изменилось")
 
-                if self.db_hashes.check_hash_change(group, date, hash_value) == True:
-                    print(f"Расписание у группы {group} - {date} изменилось")
-                    await self.send_schedule({f"{group} {date}": schedule}, True)  # type: ignore
+                self.db_hashes.change_hash(group, date, hash_value)
+                await self.send_schedule([date], [group], True)
 
-                elif self.db_hashes.check_hash_change(group, date, hash_value) == False:
-                    continue
         except Exception as e:
             print(format_error_message(self.check_schedule_change.__name__, e))
-            await asyncio.sleep(3)
 
     async def safe_send_photo(self, user_id: int, photo, updated: bool):
         """Method for sending schedule photos"""
@@ -146,6 +148,7 @@ class ScheduleChecker:
                     caption=caption,
                     disable_notification=bool(caption),
                 )
+                await print_sent(user_id)
                 return True
 
             except TelegramRetryAfter as e:
@@ -211,6 +214,7 @@ class ScheduleChecker:
                     date=date,
                     number_rows=len(schedule) + 1,
                     filename=filename,
+                    group=group,
                     theme=theme,
                 )
             )
@@ -260,9 +264,7 @@ class ScheduleChecker:
             async with self.limiter:
                 while attempt <= 3:
                     try:
-                        print(
-                            f"\t\t{no_schedule_for_date.format(group=group, date=date)}"
-                        )
+                        print(f"\t\t{no_schedule_for_date.format(group=group, date=date)}")
                         await self.bot.send_message(
                             user_id,
                             no_schedule_for_date.format(group=group, date=date),
@@ -280,9 +282,7 @@ class ScheduleChecker:
 
                     except Exception as e:
                         attempt += 1
-                        print(
-                            f"\t\t🟥 attempt({attempt}) - Ошибка при отправке {user_id} - {group}"
-                        )
+                        print(f"\t\t🟥 attempt({attempt}) - Ошибка при отправке {user_id} - {group}")
 
     async def _send_schedule(
         self,
@@ -298,7 +298,6 @@ class ScheduleChecker:
                 tasks = []
                 for user_id in chunk:
                     tasks.append(self.safe_send_photo(user_id, photo, updated_schedule))
-                    tasks.append(print_sent(user_id))
 
                 for task in tasks:
                     async with self.limiter:
@@ -306,49 +305,52 @@ class ScheduleChecker:
 
     async def send_schedule(
         self,
-        groups_schedule: dict[str, list[list]],
-        updated_schedule: bool = False,
+        new_dates: list[str],
+        groups: list[str],
+        updated_schedule: bool = False
     ) -> None:
         """The method for sending the schedule"""
         try:
-            # | groups_schedule: { "group date": list[list[...]] }
-
-            for group_date, schedule in groups_schedule.items():
-                data = group_date.split(" ")
-                group = data[0]
-                date = data[1]
-
+            for group in groups:
                 users: list[int] = await self.db_users.get_users_by_group(group)
 
-                print(f"group: {group}")
-                print(f"date: {date}")
-                print(f"users: {users}")
+                for date in new_dates:
+                    schedule = await self.schedule_service.get_schedule(group, date)
 
-                if not any(schedule):
-                    await self._send_no_schedule_message(users, group, date)
-                    continue
+                    print(f"date: {date}")
+                    print(f"group: {group}")
+                    print(f"users: {users}")
+                    print(f"schedule: {schedule}")
 
-                themes_users = await self._get_themes_users(group)
+                    if not schedule:
+                        await self._send_no_schedule_message(users, group, date)
+                        continue
+                
+                    themes_users = await self._get_themes_users(group)
 
-                await self._create_photos_schedule(themes_users, schedule, date, group)
+                    await self._create_photos_schedule(themes_users, schedule, date, group) # type: ignore
 
-                open_photos = await self._open_photos_schedule(themes_users, group)
+                    open_photos = await self._open_photos_schedule(themes_users, group)
 
-                user_chunks_dict: dict[str, list[list[int]]] = (
-                    await self._get_user_chunks(themes_users)
-                )
-
-                await self._send_schedule(
-                    user_chunks_dict, open_photos, updated_schedule
-                )
-
-                for theme in themes_users:
-                    filename = f"{group}_{theme}.jpeg"
-                    (
-                        os.remove(f"{WORKSPACE}{filename}")
-                        if os.path.exists(f"{WORKSPACE}{filename}")
-                        else False
+                    user_chunks_dict: dict[str, list[list[int]]] = (
+                        await self._get_user_chunks(themes_users)
                     )
+
+                    await self._send_schedule(
+                        user_chunks_dict, open_photos, updated_schedule
+                    )
+
+                    for theme in themes_users:
+                        filename = f"{group}_{theme}.jpeg"
+                        (
+                            os.remove(f"{WORKSPACE}{filename}")
+                            if os.path.exists(f"{WORKSPACE}{filename}")
+                            else False
+                        )
+                    
+                    if not updated_schedule:
+                       hash_value: str = await generate_hash(schedule) # type: ignore
+                       self.db_hashes.add_hash(group, date, hash_value)
 
         except Exception as e:
             print(format_error_message(self.send_schedule.__name__, e))

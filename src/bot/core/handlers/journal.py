@@ -21,7 +21,7 @@ def register(dp: Dispatcher):
     dp.include_router(router)
 
 
-@router.message(F.text == "📙 Электронный журнал")
+@router.message(F.text == "📖 Электронный журнал")
 @event_handler(admin_check=False)
 async def ejournal_handler(ms: Message, state: FSMContext) -> None:
     user_id = ms.from_user is not None and ms.from_user.id

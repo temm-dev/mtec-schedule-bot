@@ -1,13 +1,23 @@
 from aiogram.fsm.state import State, StatesGroup
 
 
+class SelectStatusFSM(StatesGroup):
+    select_status = State()
+
+
+class SelectMentorFioFSM(StatesGroup):
+    select_mentor_fio = State()
+
+
 class SelectGroupFSM(StatesGroup):
     select_group = State()
 
 
-class SelectGroupFriendFSM(StatesGroup):
-    select_group_friend = State()
+class SelectGroupScheduleFSM(StatesGroup):
+    select_group_schedule = State()
 
+class SelectMentorScheduleFSM(StatesGroup):
+    select_mentor_schedule = State()
 
 class SupportFSM(StatesGroup):
     support = State()
