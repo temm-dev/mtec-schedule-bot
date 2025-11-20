@@ -8,6 +8,7 @@ from core.dependencies import container
 from phrases import *
 from services.schedule_service import ScheduleService
 from utils.markup import (
+    inliine_markup_select_status,
     inline_markup_additional_functions,
     inline_markup_additional_functions_bot,
     inline_markup_additional_functions_extended,
@@ -18,7 +19,7 @@ from utils.markup import (
 )
 
 from ..filters.custom_filters import LegalInformationFilter
-from ..fsm.states import SelectGroupFSM, SupportFSM
+from ..fsm.states import SelectGroupFSM, SupportFSM, SelectStatusFSM, SelectMentorFioFSM
 from ..middlewares.antispam import AntiSpamMiddleware
 from ..middlewares.blacklist import BlacklistMiddleware
 from .decorators import event_handler
@@ -73,11 +74,81 @@ async def start_handler(ms: Message, state: FSMContext) -> None:
     message1 = await ms.answer(text=welcome_text)
 
     message2 = await ms.answer(
-        text=select_group_text, reply_markup=inline_markup_select_group
+        text=select_status_text, reply_markup=inliine_markup_select_status
     )
 
     await state.update_data(messages_id=[message1.message_id, message2.message_id])
-    await state.set_state(SelectGroupFSM.select_group)
+    await state.set_state(SelectStatusFSM.select_status)
+
+
+@router.callback_query(SelectStatusFSM.select_status)
+@event_handler(admin_check=False)
+async def select_status_handler(cb: CallbackQuery, state: FSMContext) -> None:
+    chat_id = cb.from_user.id
+    status = cb.data
+
+    if status == "👩‍🏫 Преподаватель":
+        message = await container.bot.send_message(
+            chat_id=chat_id,
+            text=select_mentor_fio_text
+        )
+
+        await state.update_data(messages_id=[message.message_id])
+        await state.set_state(SelectMentorFioFSM.select_mentor_fio)
+
+    elif status == "👨‍🎓 Студент":
+        message = await container.bot.send_message(
+            chat_id=chat_id,
+            text=select_group_text,
+            reply_markup=inline_markup_select_group
+        )
+        await state.update_data(messages_id=[message.message_id])
+        await state.set_state(SelectGroupFSM.select_group)
+
+@router.message(SelectMentorFioFSM.select_mentor_fio)
+@event_handler(admin_check=False, clear_state=False)
+async def selected_mentor_fio_callback(ms: Message, state: FSMContext) -> None:
+    if ms.from_user is None:
+        return
+    
+    user_id = ms.from_user.id
+    mentor_fio = ms.text
+
+    if not isinstance(mentor_fio, str):
+        return None
+
+    user_in: bool = await container.db_users.check_user_in_db(user_id)
+
+    if not user_in:
+        await container.db_users.add_user_into_db(user_id, mentor_fio)
+    else:
+        await container.db_users.change_user_group(user_id, mentor_fio)
+
+    state_data = await state.get_data()
+    messages_need_delete_id = state_data.get("messages_id")
+    chat_id = ms.chat.id if ms.chat is not None else -1
+
+    if messages_need_delete_id:
+        await container.bot.delete_messages(
+            chat_id=chat_id, message_ids=messages_need_delete_id
+        )
+
+    await container.bot.send_message(
+        user_id,
+        selected_mentor_fio_text.format(mentor_fio=mentor_fio),
+        reply_markup=reply_markup_additional_functions,
+        parse_mode="HTML",
+    )
+
+    await container.bot.send_message(
+        user_id,
+        selected_group_next_text,
+        reply_markup=inline_markup_additional_functions,
+    )
+
+    await state.clear()
+
+    await schedule_service.send_mentor_schedule(user_id, mentor_fio)
 
 
 @router.callback_query(SelectGroupFSM.select_group)
