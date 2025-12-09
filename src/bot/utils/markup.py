@@ -16,6 +16,7 @@ from config.themes import paths_to_photo_theme, themes_parameters
 from .keyboard import build_inline_keyboard
 from .utils import format_names
 
+
 def sort_key(group):
     match = re.match(r"([A-ZА-Я]+)(\d+)", group)
     if match:
@@ -29,6 +30,7 @@ async def get_groups_schedule_wrapper() -> list[str]:
     from services.schedule_service import ScheduleService
 
     return await ScheduleService().get_groups_schedule()
+
 
 async def get_mentors_names_schedule_wrapper() -> dict[str, str]:
     from services.schedule_service import ScheduleService
@@ -49,16 +51,18 @@ async def create_groups_keyboard():
     groups = sorted(set(groups), key=sort_key)
     return InlineKeyboardMarkup(inline_keyboard=build_inline_keyboard(groups))  # type: ignore
 
+
 async def create_mentors_names_keyboard():
     mentors_dict = await get_mentors_names_schedule_wrapper()
-    mentors_names = [ v for _, v in mentors_dict.items() ]
+    mentors_names = [v for _, v in mentors_dict.items()]
 
     mentors_names = sorted(set(mentors_names), key=sort_key)
     return InlineKeyboardMarkup(inline_keyboard=build_inline_keyboard(mentors_names))  # type: ignore
 
+
 async def create_mentors_fcs_keyboard():
     mentors_dict = await get_mentors_names_schedule_wrapper()
-    mentors_fcs = [ k for k, _ in mentors_dict.items() ]
+    mentors_fcs = [k for k, _ in mentors_dict.items()]
 
     mentors_fcs = sorted(set(mentors_fcs), key=sort_key)
     return InlineKeyboardMarkup(inline_keyboard=build_inline_keyboard(mentors_fcs))  # type: ignore
@@ -66,8 +70,10 @@ async def create_mentors_fcs_keyboard():
 
 inline_status_list = [
     [
-        InlineKeyboardButton(text="👩‍🏫 Преподаватель", callback_data="👩‍🏫 Преподаватель"),
-        InlineKeyboardButton(text="👨‍🎓 Студент", callback_data="👨‍🎓 Студент")
+        InlineKeyboardButton(
+            text="👩‍🏫 Преподаватель", callback_data="👩‍🏫 Преподаватель"
+        ),
+        InlineKeyboardButton(text="👨‍🎓 Студент", callback_data="👨‍🎓 Студент"),
     ]
 ]
 
@@ -80,7 +86,6 @@ inline_markup_select_mentors_fcs = asyncio.run(create_mentors_fcs_keyboard())
 inline_markup_select_theme = InlineKeyboardMarkup(
     inline_keyboard=build_inline_keyboard(list(themes_parameters.keys()))  # type: ignore
 )
-
 
 
 inline_additional_functions_list = [
@@ -115,16 +120,12 @@ inline_additional_functions_list_extended = [
 ]
 
 inline_additional_functions_bot = [
-    [
-        InlineKeyboardButton(
-            text="⚙️ Настройки", callback_data="⚙️ Настройки"
-        )
-    ],
+    [InlineKeyboardButton(text="⚙️ Настройки", callback_data="⚙️ Настройки")],
     [
         InlineKeyboardButton(
             text="❗ Правовая информация", callback_data="❗ Правовая информация"
         )
-    ]
+    ],
 ]
 
 inline_additional_functions_social_networks_list = [
@@ -157,8 +158,14 @@ inline_markup_additional_functions_social_networks = InlineKeyboardMarkup(
 
 
 reply_additional_functions_list = [
-    [KeyboardButton(text="🕒 Расписание звонков"), KeyboardButton(text="📚 Моё расписание")],
-    [KeyboardButton(text="👩‍🏫 Расписание преподавателя"), KeyboardButton(text="👥 Расписание группы")],
+    [
+        KeyboardButton(text="🕒 Расписание звонков"),
+        KeyboardButton(text="📚 Моё расписание"),
+    ],
+    [
+        KeyboardButton(text="👩‍🏫 Расписание преподавателя"),
+        KeyboardButton(text="👥 Расписание группы"),
+    ],
     [KeyboardButton(text="📖 Электронный журнал")],
     [KeyboardButton(text="🔍 Дополнительно"), KeyboardButton(text="💬 Помощь")],
 ]
