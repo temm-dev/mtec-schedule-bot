@@ -122,7 +122,7 @@ class ImageCreator:
 
         day_of_week_name = day_week_by_date(date)
 
-        columns = ["№", f"\n{group}\n\n{day_of_week_name} - {date}\n\nНаименование", "Ауд"]
+        columns = ["№", f"\n{group}\n\n{day_of_week_name} - {date}\n", "Ауд"]
 
         fig, ax = plt.subplots(figsize=(7, number_rows+0.5))
         ax.set_axis_off()
