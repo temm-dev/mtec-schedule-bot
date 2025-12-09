@@ -31,14 +31,20 @@ class DatabaseUsers:
         return self
 
     async def create_table(self) -> None:
-        """A method for creating a table"""
+        """A method for creating a table""" #TODO | user_status = [student, mentor]
         fields_table = """
         id INTEGER PRIMARY KEY,
         user_id INTEGER,
-        user_group TEXT,
+
+        user_status TEXT,
+        mentor_name TEXT DEFAULT None,
+        student_group TEXT DEFAULT None,
+
         user_theme TEXT DEFAULT Classic,
+
         ejournal_name TEXT DEFAULT None,
         ejournal_password TEXT DEFAULT None,
+
         toggle_schedule BOOL DEFAULT False,
         all_semesters BOOL DEFAULT False
         """
@@ -48,6 +54,7 @@ class DatabaseUsers:
                 f"""CREATE TABLE IF NOT EXISTS Users ({fields_table})"""
             ):
                 await self.db.commit()
+
 
     async def check_user_in_db(self, user_id: int) -> bool:
         """A method for verifying the presence of a user in the database"""
@@ -60,23 +67,36 @@ class DatabaseUsers:
 
         return bool(user_in)
 
+    async def get_user_status(self, user_id: int):
+        """Method for getting user status [student, mentor]"""
+        async with self.lock:
+            async with self.db.execute(
+                f"""SELECT user_status FROM Users WHERE user_id == ?""",
+                (user_id,)
+            ) as cursor:
+                row = await cursor.fetchone()
+                status = row[0] if row else ""
+
+        return status
+
+
     async def get_users(self) -> list[int]:
         """A method for getting the IDs of all users in the database"""
         async with self.lock:
-            async with self.db.execute(f"""SELECT user_id FROM Users """) as cursor:
+            async with self.db.execute(f"""SELECT user_id FROM Users""") as cursor:
                 data = await cursor.fetchall()
                 users_ids = [user_id[0] for user_id in data]
 
         return users_ids
 
-    async def get_groups(self) -> list[str]:
+    async def get_groups(self) -> list[str]: # TODO - Unused function?
         """Method for getting all the groups in the database"""
         async with self.lock:
-            async with self.db.execute(f"""SELECT user_group FROM Users """) as cursor:
-                data = await cursor.fetchall()
+            async with self.db.execute(f"""SELECT student_group FROM Users """) as cursor:
+                row = await cursor.fetchall()
                 groups = set()
 
-                [groups.add(group[0]) for group in data]
+                [groups.add(group[0]) for group in row]
 
         return list(groups)
 
@@ -84,36 +104,51 @@ class DatabaseUsers:
         """Method for getting users from a group"""
         async with self.lock:
             async with self.db.execute(
-                f"""SELECT user_id FROM Users WHERE user_group == ? AND toggle_schedule == 0 """,
-                (group,),
+                f"""SELECT user_id FROM Users WHERE user_status == ? AND student_group == ? AND toggle_schedule == ? """,
+                ("student", group, 0),
             ) as cursor:
-                data = await cursor.fetchall()
-                users_id = [user_id[0] for user_id in data]
+                row = await cursor.fetchall()
+                users_ids = [user_id[0] for user_id in row]
 
-        return users_id
-
-    async def change_user_group(self, user_id: int, user_group: str) -> None:
-        """Method for changing the user's group"""
-        async with self.lock:
-            async with self.db.execute(
-                """UPDATE Users SET user_group = ? WHERE user_id = ? """,
-                (user_group, user_id),
-            ):
-                await self.db.commit()
-
-        print(f"👤 Группа пользователя изменена | {user_id} - {user_group} | ℹ️")
-
+        return users_ids
+    
     async def get_users_by_theme(self, group: str, theme: str = "Classic") -> list[int]:
-        """A method for getting users from a group by topic"""
+        """A method for getting users from a group by theme"""
         async with self.lock:
             async with self.db.execute(
-                f"""SELECT user_id FROM Users WHERE user_group == ? AND user_theme == ? AND toggle_schedule == 0 """,
-                (group, theme),
+                f"""SELECT user_id FROM Users WHERE student_group == ? AND user_theme == ? AND toggle_schedule == ? """,
+                (group, theme, 0),
             ) as cursor:
                 data = await cursor.fetchall()
                 users_ids = [user_id[0] for user_id in data]
 
         return users_ids
+
+
+    async def get_user_group(self, user_id: int) -> str:
+        """Method for getting the user's group"""
+        async with self.lock:
+            async with self.db.execute(
+                f"""SELECT student_group FROM Users WHERE user_id == ?""",
+                (user_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+                student_group = row[0] if row else ""
+
+        return student_group
+
+    async def get_user_theme(self, user_id: int) -> str:
+        """The method for getting the user's theme"""
+        async with self.lock:
+            async with self.db.execute(
+                f"""SELECT user_theme FROM Users WHERE user_id == ?""",
+                (user_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+                user_theme = row[0] if row else "Classic"
+
+        return user_theme
+
 
     async def get_user_settigs(self, user_id: int) -> dict[str, bool]:
         """Method for getting user settings"""
@@ -131,39 +166,6 @@ class DatabaseUsers:
         all_semesters = bool(int(data[1]))
 
         return {"toggle_schedule": toggle_schedule, "all_semesters": all_semesters}
-
-    async def change_user_settings(
-        self, setting: str, setting_status: bool, user_id: int
-    ) -> None:
-        """A method for changing user settings"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""UPDATE Users SET "{setting}" = ? WHERE user_id = ? """,
-                (setting_status, user_id),
-            ):
-                await self.db.commit()
-
-    async def get_group_by_user_id(self, user_id: int) -> str:
-        """Method for getting the user's group"""
-        async with self.lock:
-            async with self.db.execute(
-                f"SELECT COALESCE(user_group, '') FROM Users WHERE user_id == ? LIMIT 1",
-                (user_id,),
-            ) as cursor:
-                row = await cursor.fetchone()
-
-        return row[0] if row else ""
-
-    async def get_theme_by_user_id(self, user_id: int) -> str:
-        """The method for getting the user's theme"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT COALESCE(user_theme, '') FROM Users WHERE user_id == ? """,
-                (user_id,),
-            ) as cursor:
-                row = await cursor.fetchone()
-
-        return row[0] if row else "Classic"
 
     async def get_user_ejournal_info(self, user_id: int) -> list[str] | list:
         """A method for obtaining user's personal data for logging into an electronic journal"""
@@ -192,6 +194,61 @@ class DatabaseUsers:
         ejouranl_info = [decrypted_fio, decrypted_pwd]
         return ejouranl_info
 
+
+
+    async def get_mentors(self) -> list:
+        """Method for getting mentors ids"""
+        async with self.lock:
+            async with self.db.execute(
+                f"""SELECT user_id, mentor_name FROM Users WHERE user_status == ? AND toggle_schedule == ? """,
+                ("mentor", 0)
+            ) as cursor:
+                data = await cursor.fetchall()
+
+                mentors = []
+                for mentor in data:
+                    mentor_id = mentor[0]
+                    mentor_name = mentor[1]
+                    mentors.append([mentor_id, mentor_name])
+
+        return mentors
+    
+    async def get_mentor_name_by_id(self, user_id: int) -> str | None:
+        """Method for getting mentors ids"""
+        async with self.lock:
+            async with self.db.execute(
+                f"""SELECT mentor_name FROM Users WHERE user_id == ? AND user_status == ? AND toggle_schedule == ? """,
+                (user_id, "mentor", 0)
+            ) as cursor:
+                data = await cursor.fetchone()
+                mentor_name = data[0] if data else None
+
+        return mentor_name
+    
+
+
+    async def change_user_settings(
+        self, setting: str, setting_status: bool, user_id: int
+    ) -> None:
+        """A method for changing user settings"""
+        async with self.lock:
+            async with self.db.execute(
+                f"""UPDATE Users SET "{setting}" = ? WHERE user_id = ? """,
+                (setting_status, user_id),
+            ):
+                await self.db.commit()
+
+    async def change_user_theme(self, user_id: int, theme: str) -> None:
+        """A method for changing the user's theme"""
+        async with self.lock:
+            async with self.db.execute(
+                f"""UPDATE Users SET user_theme = ? WHERE user_id = ? """,
+                (theme, user_id),
+            ):
+                await self.db.commit()
+
+
+
     async def add_user_ejournal_info(self, user_id: int, info: list) -> None:
         """A method for adding personal data to the user's electronic journal"""
         fio, pwd = info[0], info[1]
@@ -206,43 +263,56 @@ class DatabaseUsers:
             ):
                 await self.db.commit()
 
-    async def delete_user_ejournal_info(self, user_id: int) -> None:
-        """A method for deleting a user's personal data to log in to an electronic journal"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""UPDATE Users SET ejournal_name = "None", ejournal_password = "None" WHERE user_id = ? """,
-                (user_id,),
-            ):
-                await self.db.commit()
-
-    async def change_user_theme(self, user_id: int, theme: str) -> None:
-        """A method for changing the user's theme"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""UPDATE Users SET user_theme = ? WHERE user_id = ? """,
-                (theme, user_id),
-            ):
-                await self.db.commit()
-
-    async def add_user_into_db(
+    async def add_user(
         self,
         user_id: int,
-        user_group: str,
-        user_theme: str = "Classic",
-        ejournal_name: str = "None",
-        ejournal_password: str = "None",
+        user_status: str,
+        mentor_name: str = "None",
+        student_group: str = "None",
     ) -> None:
         """Method for adding a user to the database"""
         async with self.lock:
             async with self.db.execute(
-                f"""INSERT INTO Users (user_id, user_group, user_theme, ejournal_name, ejournal_password) VALUES(?, ?, ?, ?, ?)""",
-                (user_id, user_group, user_theme, ejournal_name, ejournal_password),
+                f"""INSERT INTO Users (user_id, user_status, mentor_name, student_group) VALUES(?, ?, ?, ?)""",
+                (user_id, user_status, mentor_name, student_group)
             ):
                 await self.db.commit()
 
-            print(f"👤 Пользователь | {user_id} - {user_group} | добавлен 🆕")
+            print(f"👤 Пользователь | {user_id} - {student_group} | добавлен 🆕")
+    
+    async def update_student(self, user_id: int, user_group: str):
+        """Method for changing the student's info"""
+        async with self.lock:
+            async with self.db.execute(
+                """UPDATE Users SET user_status = ?, student_group = ?, mentor_name = ? WHERE user_id = ? """,
+                ("student", user_group, "None", user_id),
+            ):
+                await self.db.commit()
 
-    async def delete_user_from_db(self, user_id: int) -> None:
+        # print(f"👤 Пользователь перезаписан 🔄 | {user_id} - {user_group} | ℹ️")
+
+    async def update_mentor(self, user_id: int, mentor_name: str):
+        """Method for changing the mentor's info"""
+        async with self.lock:
+            async with self.db.execute(
+                """UPDATE Users SET user_status = ?, student_group = ?, mentor_name = ? WHERE user_id = ? """,
+                ("mentor", "None", mentor_name, user_id),
+            ):
+                await self.db.commit()
+
+        # print(f"👤 Пользователь перезаписан 🔄 | {user_id} - {mentor_name} | ℹ️")
+
+
+    async def delete_user_ejournal_info(self, user_id: int) -> None:
+        """A method for deleting a user's personal data to log in to an electronic journal"""
+        async with self.lock:
+            async with self.db.execute(
+                f"""UPDATE Users SET ejournal_name = ?, ejournal_password = ? WHERE user_id = ? """,
+                ("None", "None", user_id,),
+            ):
+                await self.db.commit()
+
+    async def delete_user(self, user_id: int) -> None:
         """A method for deleting a user from the database"""
         async with self.lock:
             async with self.db.execute(
