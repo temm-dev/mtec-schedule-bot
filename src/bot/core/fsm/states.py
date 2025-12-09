@@ -5,8 +5,8 @@ class SelectStatusFSM(StatesGroup):
     select_status = State()
 
 
-class SelectMentorFioFSM(StatesGroup):
-    select_mentor_fio = State()
+class SelectMentorNameFSM(StatesGroup):
+    select_mentor_name = State()
 
 
 class SelectGroupFSM(StatesGroup):
@@ -16,8 +16,10 @@ class SelectGroupFSM(StatesGroup):
 class SelectGroupScheduleFSM(StatesGroup):
     select_group_schedule = State()
 
+
 class SelectMentorScheduleFSM(StatesGroup):
     select_mentor_schedule = State()
+
 
 class SupportFSM(StatesGroup):
     support = State()
