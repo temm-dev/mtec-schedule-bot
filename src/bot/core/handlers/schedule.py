@@ -5,7 +5,12 @@ from aiogram.types import CallbackQuery, Message
 from core.dependencies import container
 from phrases import *
 from services.schedule_service import ScheduleService
-from utils.markup import inline_markup_select_group, media_call_schedule_photos, inline_markup_select_mentors_fcs, mentors_dict
+from utils.markup import (
+    inline_markup_select_group,
+    inline_markup_select_mentors_fcs,
+    media_call_schedule_photos,
+    mentors_dict,
+)
 
 from ..fsm.states import SelectGroupScheduleFSM, SelectMentorScheduleFSM
 from ..middlewares.antispam import AntiSpamMiddleware
@@ -30,11 +35,22 @@ async def resend_schedule_handler(ms: Message, state: FSMContext) -> None:
     message = await ms.answer(checking_schedule_text)
 
     user_id = ms.from_user is not None and ms.from_user.id
-    user_group = await container.db_users.get_group_by_user_id(user_id)
 
-    await schedule_service.send_schedule_by_group(user_id, user_group, "_resend")
+    user_status = await container.db_users.get_user_status(user_id)
 
-    await container.bot.delete_message(user_id, message.message_id)
+    if user_status == "mentor":
+        mentor_name = await container.db_users.get_mentor_name_by_id(user_id)
+
+        if mentor_name is None:
+            return
+
+        await schedule_service.send_mentor_schedule(user_id, mentor_name, "_resend")
+        await container.bot.delete_message(user_id, message.message_id)
+
+    elif user_status == "student":
+        user_group = await container.db_users.get_user_group(user_id)
+        await schedule_service.send_schedule_by_group(user_id, user_group, "_resend")
+        await container.bot.delete_message(user_id, message.message_id)
 
 
 @router.message(F.text == "🔔 Расписание звонков")
@@ -42,7 +58,6 @@ async def resend_schedule_handler(ms: Message, state: FSMContext) -> None:
 @event_handler(admin_check=False)
 async def send_call_schedule_handler(ms: Message, state: FSMContext) -> None:
     await ms.answer_media_group(media_call_schedule_photos)
-
 
 
 @router.message(F.text == "👩‍🏫 Расписание преподавателя")
@@ -59,7 +74,7 @@ async def schedule_mentor(ms: Message, state: FSMContext) -> None:
 @event_handler(admin_check=False, clear_state=False)
 async def schedule_mentor_check(cb: CallbackQuery, state: FSMContext) -> None:
     user_id = cb.from_user.id
-    mentor_name = mentors_dict[cb.data] # type: ignore
+    mentor_name = mentors_dict[cb.data]  # type: ignore
 
     if mentor_name is None:
         return
@@ -92,8 +107,6 @@ async def schedule_mentor_check(cb: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
 
 
-
-
 @router.message(F.text == "👥 Расписание группы")
 @event_handler(admin_check=False)
 async def schedule_group(ms: Message, state: FSMContext) -> None:
@@ -106,7 +119,7 @@ async def schedule_group(ms: Message, state: FSMContext) -> None:
 
 @router.callback_query(SelectGroupScheduleFSM.select_group_schedule)
 @event_handler(admin_check=False, clear_state=False)
-async def schedule_friend_check(cb: CallbackQuery, state: FSMContext) -> None:
+async def schedule_group_check(cb: CallbackQuery, state: FSMContext) -> None:
     user_id = cb.from_user.id
     group = cb.data
 
@@ -126,9 +139,7 @@ async def schedule_friend_check(cb: CallbackQuery, state: FSMContext) -> None:
         reply_markup=None,
     )
 
-    await schedule_service.send_schedule_by_group(
-        user_id, group, "_group_schedule"
-    )
+    await schedule_service.send_schedule_by_group(user_id, group, "_group_schedule")
 
     await container.bot.edit_message_text(
         chat_id=chat_id,
