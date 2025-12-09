@@ -8,6 +8,11 @@ class LegalInformationFilter(Filter):
         return cb.data == "❗ Правовая информация"
 
 
+class SettingsFilter(Filter):
+    async def __call__(self, cb: CallbackQuery) -> bool:
+        return cb.data == "⚙️ Настройки"
+
+
 class GetDBUsersFilter(Filter):
     async def __call__(self, cb: CallbackQuery) -> bool:
         return cb.data == "users 📄" and cb.from_user.id == ADMIN
@@ -26,11 +31,6 @@ class GetLogsFilter(Filter):
 class GetSupportJournalFilter(Filter):
     async def __call__(self, cb: CallbackQuery) -> bool:
         return cb.data == "support 📄" and cb.from_user.id == ADMIN
-
-
-class GetSupportFilter(Filter):
-    async def __call__(self, cb: CallbackQuery) -> bool:
-        return cb.data == "❓ Помощь" and cb.from_user.id == ADMIN
 
 
 class ScheduleStyle(Filter):

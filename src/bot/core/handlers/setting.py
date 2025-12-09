@@ -8,7 +8,7 @@ from phrases import *
 from utils.keyboard import build_settings_keyboard
 from utils.markup import inline_markup_select_theme, media_photo_themes
 
-from ..filters.custom_filters import ScheduleStyle
+from ..filters.custom_filters import ScheduleStyle, SettingsFilter
 from ..fsm.states import ChangeSettingsFSM, SelectThemeFSM
 from ..middlewares.antispam import AntiSpamMiddleware
 from ..middlewares.blacklist import BlacklistMiddleware
@@ -27,7 +27,7 @@ def register(dp: Dispatcher):
 @event_handler(admin_check=False)
 async def select_theme_handler(cb: CallbackQuery, state: FSMContext) -> None:
     user_id = cb.from_user is not None and cb.from_user.id
-    user_theme = await container.db_users.get_theme_by_user_id(user_id)
+    user_theme = await container.db_users.get_user_theme(user_id)
 
     media_group_message = await container.bot.send_media_group(
         user_id, media_photo_themes
@@ -82,17 +82,17 @@ async def select_theme_callback(cb: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
 
 
-@router.message(F.text == "⚙️ Настройки")
+@router.callback_query(SettingsFilter())
 @event_handler(admin_check=False)
-async def settings_handler(ms: Message, state: FSMContext) -> None:
-    user_id = ms.from_user is not None and ms.from_user.id
+async def settings_handler(cb: CallbackQuery, state: FSMContext) -> None:
+    user_id = cb.from_user is not None and cb.from_user.id
 
     user_settings = await container.db_users.get_user_settigs(user_id)
     keyboard = build_settings_keyboard(user_settings)
 
-    await ms.answer(settings_text)
-    sent_message = await ms.answer(
-        settings_help_text, parse_mode="HTML", reply_markup=keyboard
+    await container.bot.send_message(user_id, settings_text)
+    sent_message = await container.bot.send_message(
+        user_id, settings_help_text, parse_mode="HTML", reply_markup=keyboard
     )
 
     await state.update_data(message_id=sent_message.message_id)
