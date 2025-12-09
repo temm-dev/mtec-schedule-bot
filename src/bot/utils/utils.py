@@ -9,6 +9,7 @@ def day_week_by_date(date: str):
     day_of_week_name = days_of_week[day_of_week_number]
     return day_of_week_name
 
+
 def format_names(names: list[str]):
     result = []
     for name in names:
@@ -19,5 +20,5 @@ def format_names(names: list[str]):
             result.append(formatted_name)
         else:
             result.append(name)
-    
+
     return result
