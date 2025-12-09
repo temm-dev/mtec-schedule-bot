@@ -6,7 +6,12 @@ from datetime import datetime
 import aiohttp
 from aiogram.types import FSInputFile
 from config.paths import WORKSPACE
-from config.requests_data import base_request_headers, request_data, requets_url, request_data_mentors
+from config.requests_data import (
+    base_request_headers,
+    request_data,
+    request_data_mentors,
+    requets_url,
+)
 from config.themes import themes_names
 from phrases import *
 from utils.formatters import format_error_message
@@ -85,13 +90,13 @@ class ScheduleService:
         with open(f"{WORKSPACE}schedule.txt", "r") as file:
             text = file.read()
             text = text.replace("        ", "")
-            text = text.replace('<td class="has-text-align-center">', '')
-            text = text.replace('</td>', '')
-            text = text.replace('<td class="has-text-align-center text">', '')
-            text = text.replace('<b>', '')
-            text = text.replace('</b>', '')
+            text = text.replace('<td class="has-text-align-center">', "")
+            text = text.replace("</td>", "")
+            text = text.replace('<td class="has-text-align-center text">', "")
+            text = text.replace("<b>", "")
+            text = text.replace("</b>", "")
             text = text.replace("<br>", "\n")
-            
+
             input_list = text.split("\n")
             input_list = input_list[3:]
 
@@ -99,10 +104,10 @@ class ScheduleService:
         for i in range(0, len(input_list), 5):
             if i + 4 < len(input_list):
                 pair = input_list[i] + "\nпара"
-                subject = input_list[i+1] + "\n" + input_list[i+2]
-                room = input_list[i+4]
+                subject = input_list[i + 1] + "\n" + input_list[i + 2]
+                room = input_list[i + 4]
                 data.append([pair, subject, room])
-        
+
         return data
 
     @classmethod
@@ -153,7 +158,7 @@ class ScheduleService:
         except Exception as e:
             print(format_error_message(cls.get_groups_schedule.__name__, e))
             return []
-    
+
     @classmethod
     async def get_names_mentors(cls) -> list[str]:
         """Method for getting available mentors fcs"""
@@ -173,7 +178,7 @@ class ScheduleService:
         except Exception as e:
             print(format_error_message(cls.get_groups_schedule.__name__, e))
             return []
-    
+
     @classmethod
     async def get_mentors_schedule(cls, mentor_name: str, date: str) -> list[list[str]]:
         """Gets the schedule for the specified fcs by date"""
@@ -232,7 +237,7 @@ class ScheduleService:
 
                 continue
 
-            user_theme = await container.db_users.get_theme_by_user_id(user_id)
+            user_theme = await container.db_users.get_user_theme(user_id)
             user_theme = "Classic" if user_theme not in themes_names else user_theme
 
             image_creator = ImageCreator()
@@ -255,7 +260,7 @@ class ScheduleService:
             )
 
     @classmethod
-    async def get_schedule(cls, group: str, date: str) -> list[list[str]]: # TODO
+    async def get_schedule(cls, group: str, date: str) -> list[list[str]]:  # TODO
         """Gets the schedule for the specified group by date"""
         cls._validation_arguments(group, date)
 
@@ -312,7 +317,7 @@ class ScheduleService:
 
                 continue
 
-            user_theme = await container.db_users.get_theme_by_user_id(user_id)
+            user_theme = await container.db_users.get_user_theme(user_id)
             user_theme = "Classic" if user_theme not in themes_names else user_theme
 
             image_creator = ImageCreator()
