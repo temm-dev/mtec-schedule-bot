@@ -31,7 +31,7 @@ class DatabaseUsers:
         return self
 
     async def create_table(self) -> None:
-        """A method for creating a table""" #TODO | user_status = [student, mentor]
+        """A method for creating a table"""
         fields_table = """
         id INTEGER PRIMARY KEY,
         user_id INTEGER,
@@ -55,7 +55,6 @@ class DatabaseUsers:
             ):
                 await self.db.commit()
 
-
     async def check_user_in_db(self, user_id: int) -> bool:
         """A method for verifying the presence of a user in the database"""
         async with self.lock:
@@ -71,14 +70,12 @@ class DatabaseUsers:
         """Method for getting user status [student, mentor]"""
         async with self.lock:
             async with self.db.execute(
-                f"""SELECT user_status FROM Users WHERE user_id == ?""",
-                (user_id,)
+                f"""SELECT user_status FROM Users WHERE user_id == ?""", (user_id,)
             ) as cursor:
                 row = await cursor.fetchone()
                 status = row[0] if row else ""
 
         return status
-
 
     async def get_users(self) -> list[int]:
         """A method for getting the IDs of all users in the database"""
@@ -89,10 +86,12 @@ class DatabaseUsers:
 
         return users_ids
 
-    async def get_groups(self) -> list[str]: # TODO - Unused function?
+    async def get_groups(self) -> list[str]:  # TODO - Unused function?
         """Method for getting all the groups in the database"""
         async with self.lock:
-            async with self.db.execute(f"""SELECT student_group FROM Users """) as cursor:
+            async with self.db.execute(
+                f"""SELECT student_group FROM Users """
+            ) as cursor:
                 row = await cursor.fetchall()
                 groups = set()
 
@@ -111,7 +110,7 @@ class DatabaseUsers:
                 users_ids = [user_id[0] for user_id in row]
 
         return users_ids
-    
+
     async def get_users_by_theme(self, group: str, theme: str = "Classic") -> list[int]:
         """A method for getting users from a group by theme"""
         async with self.lock:
@@ -123,7 +122,6 @@ class DatabaseUsers:
                 users_ids = [user_id[0] for user_id in data]
 
         return users_ids
-
 
     async def get_user_group(self, user_id: int) -> str:
         """Method for getting the user's group"""
@@ -148,7 +146,6 @@ class DatabaseUsers:
                 user_theme = row[0] if row else "Classic"
 
         return user_theme
-
 
     async def get_user_settigs(self, user_id: int) -> dict[str, bool]:
         """Method for getting user settings"""
@@ -194,14 +191,12 @@ class DatabaseUsers:
         ejouranl_info = [decrypted_fio, decrypted_pwd]
         return ejouranl_info
 
-
-
     async def get_mentors(self) -> list:
         """Method for getting mentors ids"""
         async with self.lock:
             async with self.db.execute(
                 f"""SELECT user_id, mentor_name FROM Users WHERE user_status == ? AND toggle_schedule == ? """,
-                ("mentor", 0)
+                ("mentor", 0),
             ) as cursor:
                 data = await cursor.fetchall()
 
@@ -212,20 +207,18 @@ class DatabaseUsers:
                     mentors.append([mentor_id, mentor_name])
 
         return mentors
-    
+
     async def get_mentor_name_by_id(self, user_id: int) -> str | None:
         """Method for getting mentors ids"""
         async with self.lock:
             async with self.db.execute(
                 f"""SELECT mentor_name FROM Users WHERE user_id == ? AND user_status == ? AND toggle_schedule == ? """,
-                (user_id, "mentor", 0)
+                (user_id, "mentor", 0),
             ) as cursor:
                 data = await cursor.fetchone()
                 mentor_name = data[0] if data else None
 
         return mentor_name
-    
-
 
     async def change_user_settings(
         self, setting: str, setting_status: bool, user_id: int
@@ -246,8 +239,6 @@ class DatabaseUsers:
                 (theme, user_id),
             ):
                 await self.db.commit()
-
-
 
     async def add_user_ejournal_info(self, user_id: int, info: list) -> None:
         """A method for adding personal data to the user's electronic journal"""
@@ -274,12 +265,12 @@ class DatabaseUsers:
         async with self.lock:
             async with self.db.execute(
                 f"""INSERT INTO Users (user_id, user_status, mentor_name, student_group) VALUES(?, ?, ?, ?)""",
-                (user_id, user_status, mentor_name, student_group)
+                (user_id, user_status, mentor_name, student_group),
             ):
                 await self.db.commit()
 
             print(f"👤 Пользователь | {user_id} - {student_group} | добавлен 🆕")
-    
+
     async def update_student(self, user_id: int, user_group: str):
         """Method for changing the student's info"""
         async with self.lock:
@@ -302,13 +293,16 @@ class DatabaseUsers:
 
         # print(f"👤 Пользователь перезаписан 🔄 | {user_id} - {mentor_name} | ℹ️")
 
-
     async def delete_user_ejournal_info(self, user_id: int) -> None:
         """A method for deleting a user's personal data to log in to an electronic journal"""
         async with self.lock:
             async with self.db.execute(
                 f"""UPDATE Users SET ejournal_name = ?, ejournal_password = ? WHERE user_id = ? """,
-                ("None", "None", user_id,),
+                (
+                    "None",
+                    "None",
+                    user_id,
+                ),
             ):
                 await self.db.commit()
 
@@ -357,13 +351,13 @@ class DatabaseHashes:
                 INSERT INTO schedule_hashes (group_name, date, hash_value)
                 VALUES (?, ?, ?)
                 """,
-                    (group_name, date, hash_value)
+                (group_name, date, hash_value),
             )
             self.conn.commit()
             return True
-        
+
         return False
-    
+
     def change_hash(self, group_name: str, date: str, hash_value: str) -> None:
         """A method for changing the hash"""
         self.cur.execute(
@@ -372,10 +366,10 @@ class DatabaseHashes:
             SET hash_value = ?
             WHERE group_name = ? AND date = ?
             """,
-                (hash_value, group_name, date),
+            (hash_value, group_name, date),
         )
         self.conn.commit()
-        
+
     def check_hash_change(
         self, group_name: str, date: str, hash_value: str
     ) -> bool | None:
@@ -392,7 +386,7 @@ class DatabaseHashes:
 
         if result[0] != hash_value:
             return True
-        
+
         return False
 
     def cleanup_old_hashes(self) -> None:
