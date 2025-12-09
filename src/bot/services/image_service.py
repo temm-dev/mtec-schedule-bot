@@ -124,7 +124,7 @@ class ImageCreator:
 
         columns = ["№", f"\n{group}\n\n{day_of_week_name} - {date}\n", "Ауд"]
 
-        fig, ax = plt.subplots(figsize=(7, number_rows+0.5))
+        fig, ax = plt.subplots(figsize=(7, number_rows + 0.5))
         ax.set_axis_off()
 
         tbl = Table(ax, bbox=[0, 0, 1, 1])  # type: ignore
