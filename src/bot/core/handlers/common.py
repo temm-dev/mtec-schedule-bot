@@ -19,7 +19,12 @@ from utils.markup import (
 )
 
 from ..filters.custom_filters import LegalInformationFilter
-from ..fsm.states import SelectGroupFSM, SupportFSM, SelectStatusFSM, SelectMentorFioFSM
+from ..fsm.states import (
+    SelectGroupFSM,
+    SelectMentorNameFSM,
+    SelectStatusFSM,
+    SupportFSM,
+)
 from ..middlewares.antispam import AntiSpamMiddleware
 from ..middlewares.blacklist import BlacklistMiddleware
 from .decorators import event_handler
@@ -89,40 +94,40 @@ async def select_status_handler(cb: CallbackQuery, state: FSMContext) -> None:
 
     if status == "👩‍🏫 Преподаватель":
         message = await container.bot.send_message(
-            chat_id=chat_id,
-            text=select_mentor_fio_text
+            chat_id=chat_id, text=select_mentor_fio_text
         )
 
         await state.update_data(messages_id=[message.message_id])
-        await state.set_state(SelectMentorFioFSM.select_mentor_fio)
+        await state.set_state(SelectMentorNameFSM.select_mentor_name)
 
     elif status == "👨‍🎓 Студент":
         message = await container.bot.send_message(
             chat_id=chat_id,
             text=select_group_text,
-            reply_markup=inline_markup_select_group
+            reply_markup=inline_markup_select_group,
         )
         await state.update_data(messages_id=[message.message_id])
         await state.set_state(SelectGroupFSM.select_group)
 
-@router.message(SelectMentorFioFSM.select_mentor_fio)
+
+@router.message(SelectMentorNameFSM.select_mentor_name)
 @event_handler(admin_check=False, clear_state=False)
-async def selected_mentor_fio_callback(ms: Message, state: FSMContext) -> None:
+async def selected_mentor_name_callback(ms: Message, state: FSMContext) -> None:
     if ms.from_user is None:
         return
-    
-    user_id = ms.from_user.id
-    mentor_fio = ms.text
 
-    if not isinstance(mentor_fio, str):
+    user_id = ms.from_user.id
+    mentor_name = ms.text
+
+    if not isinstance(mentor_name, str):
         return None
 
     user_in: bool = await container.db_users.check_user_in_db(user_id)
 
     if not user_in:
-        await container.db_users.add_user_into_db(user_id, mentor_fio)
+        await container.db_users.add_user(user_id, "mentor", mentor_name=mentor_name)
     else:
-        await container.db_users.change_user_group(user_id, mentor_fio)
+        await container.db_users.update_mentor(user_id, mentor_name)
 
     state_data = await state.get_data()
     messages_need_delete_id = state_data.get("messages_id")
@@ -135,7 +140,7 @@ async def selected_mentor_fio_callback(ms: Message, state: FSMContext) -> None:
 
     await container.bot.send_message(
         user_id,
-        selected_mentor_fio_text.format(mentor_fio=mentor_fio),
+        selected_mentor_fio_text.format(mentor_fio=mentor_name),
         reply_markup=reply_markup_additional_functions,
         parse_mode="HTML",
     )
@@ -148,7 +153,7 @@ async def selected_mentor_fio_callback(ms: Message, state: FSMContext) -> None:
 
     await state.clear()
 
-    await schedule_service.send_mentor_schedule(user_id, mentor_fio)
+    await schedule_service.send_mentor_schedule(user_id, mentor_name)
 
 
 @router.callback_query(SelectGroupFSM.select_group)
@@ -163,9 +168,9 @@ async def selected_group_callback(cb: CallbackQuery, state: FSMContext) -> None:
     user_in: bool = await container.db_users.check_user_in_db(user_id)
 
     if not user_in:
-        await container.db_users.add_user_into_db(user_id, user_group)
+        await container.db_users.add_user(user_id, "student", student_group=user_group)
     else:
-        await container.db_users.change_user_group(user_id, user_group)
+        await container.db_users.update_student(user_id, user_group)
 
     state_data = await state.get_data()
     messages_need_delete_id = state_data.get("messages_id")
@@ -194,7 +199,7 @@ async def selected_group_callback(cb: CallbackQuery, state: FSMContext) -> None:
     await schedule_service.send_schedule_by_group(user_id, user_group)
 
 
-@router.message(Command("change_group"))
+@router.message(Command("change_group"))  # TODO | Possible error/omission
 @event_handler(admin_check=False)
 async def change_group_handler(ms: Message, state: FSMContext) -> None:
     message = await ms.answer(
@@ -204,7 +209,6 @@ async def change_group_handler(ms: Message, state: FSMContext) -> None:
     await state.set_state(SelectGroupFSM.select_group)
 
 
-@router.message(F.text == "🛠️ Дополнительно")
 @router.message(F.text == "🔍 Дополнительно")
 @event_handler(admin_check=False)
 async def additionally_handler(ms: Message, state: FSMContext) -> None:
@@ -222,8 +226,6 @@ async def additionally_handler(ms: Message, state: FSMContext) -> None:
 
 
 @router.message(Command("support"))
-@router.message(F.text == "🦺 Тех. поддержка")
-@router.message(F.text == "❓ Помощь")
 @router.message(F.text == "💬 Помощь")
 @event_handler(admin_check=False)
 async def technical_support_handler(ms: Message, state: FSMContext) -> None:
