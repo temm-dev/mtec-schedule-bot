@@ -4,6 +4,7 @@ workspace/
 extras/
 *.db
 secret.key
+temp.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
