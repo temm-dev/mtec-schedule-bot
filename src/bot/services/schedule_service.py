@@ -228,10 +228,10 @@ class ScheduleService:
 
             if not any(data):
                 day = day_week_by_date(date)
-                print(no_schedule_text.format(date=date, day=day))
+                print(no_schedule_mentor_text.format(mentor_name=mentor_name, date=date, day=day))
                 await container.bot.send_message(
                     user_id,
-                    no_schedule_text.format(date=date, day=day),
+                    no_schedule_mentor_text.format(mentor_name=mentor_name, date=date, day=day),
                     parse_mode="HTML",
                 )
 
