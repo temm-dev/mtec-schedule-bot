@@ -4,13 +4,18 @@ from aiogram.types import CallbackQuery, Message
 from config.bot_config import ADMIN
 from config.paths import WORKSPACE, PATH_DBs
 from core.dependencies import container
-from phrases import *
-from services.mailing_service import MessageSender
-from utils.markup import (
-    FSInputFile,
-    inline_markup_admin_panel_tools,
-    inline_markup_select_group,
+from phrases import (
+    admin_panel_text,
+    block_user_text,
+    enter_send_message_text,
+    send_message_all_users_text,
+    send_message_group_text,
+    send_message_user_text,
+    user_added_in_blacklist_text,
+    user_in_blacklist_text,
 )
+from services.mailing_service import MessageSender
+from utils.markup import FSInputFile, inline_markup_admin_panel_tools, inline_markup_select_group
 
 from ..filters.custom_filters import (
     BlockUserFilter,
@@ -22,12 +27,7 @@ from ..filters.custom_filters import (
     SendMessageUserFilter,
     SendMessageUsersFilter,
 )
-from ..fsm.states import (
-    BlockUserFSM,
-    SendMessageGroupFSM,
-    SendMessageUserFSM,
-    SendMessageUsersFSM,
-)
+from ..fsm.states import BlockUserFSM, SendMessageGroupFSM, SendMessageUserFSM, SendMessageUsersFSM
 from ..middlewares.antispam import AntiSpamMiddleware
 from ..middlewares.blacklist import BlacklistMiddleware
 from .common import cancel_action_handler
@@ -53,17 +53,13 @@ async def admin_panel_handler(ms: Message, state: FSMContext) -> None:
 @router.callback_query(GetDBUsersFilter())
 @event_handler()
 async def get_db_users_callback(cb: CallbackQuery, state: FSMContext) -> None:
-    await container.bot.send_document(
-        ADMIN, FSInputFile(path=f"{PATH_DBs}mtec_users.db")
-    )
+    await container.bot.send_document(ADMIN, FSInputFile(path=f"{PATH_DBs}mtec_users.db"))
 
 
 @router.callback_query(GetDBHashesFilter())
 @event_handler()
 async def get_db_hashes_callback(cb: CallbackQuery, state: FSMContext) -> None:
-    await container.bot.send_document(
-        ADMIN, FSInputFile(path=f"{PATH_DBs}schedule_hashes.db")
-    )
+    await container.bot.send_document(ADMIN, FSInputFile(path=f"{PATH_DBs}schedule_hashes.db"))
 
 
 @router.callback_query(GetLogsFilter())
@@ -75,9 +71,7 @@ async def get_logs_callback(cb: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(GetSupportJournalFilter())
 @event_handler()
 async def get_support_callback(cb: CallbackQuery, state: FSMContext) -> None:
-    await container.bot.send_document(
-        ADMIN, FSInputFile(path=f"{WORKSPACE}support.txt")
-    )
+    await container.bot.send_document(ADMIN, FSInputFile(path=f"{WORKSPACE}support.txt"))
 
 
 @router.callback_query(BlockUserFilter())
@@ -161,9 +155,7 @@ async def send_message_user_enter_message(ms: Message, state: FSMContext) -> Non
 @router.callback_query(SendMessageUsersFilter())
 @event_handler()
 async def send_message_users(cb: CallbackQuery, state: FSMContext) -> None:
-    await container.bot.send_message(
-        ADMIN, send_message_all_users_text, parse_mode="HTML"
-    )
+    await container.bot.send_message(ADMIN, send_message_all_users_text, parse_mode="HTML")
     await state.set_state(SendMessageUsersFSM.send_message_enter_message)
 
 
@@ -204,9 +196,7 @@ async def send_message_group_select_group(cb: CallbackQuery, state: FSMContext) 
     users_id = await container.db_users.get_users_by_group(group)
 
     if not users_id:
-        await container.bot.send_message(
-            ADMIN, f"❌ Нет пользователей с группы {group}"
-        )
+        await container.bot.send_message(ADMIN, f"❌ Нет пользователей с группы {group}")
         return
 
     await state.update_data(group=group)
