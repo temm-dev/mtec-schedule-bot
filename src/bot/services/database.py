@@ -50,9 +50,7 @@ class DatabaseUsers:
         """
 
         async with self.lock:
-            async with self.db.execute(
-                f"""CREATE TABLE IF NOT EXISTS Users ({fields_table})"""
-            ):
+            async with self.db.execute(f"""CREATE TABLE IF NOT EXISTS Users ({fields_table})"""):
                 await self.db.commit()
 
     async def check_user_in_db(self, user_id: int) -> bool:
@@ -69,9 +67,7 @@ class DatabaseUsers:
     async def get_user_status(self, user_id: int):
         """Method for getting user status [student, mentor]"""
         async with self.lock:
-            async with self.db.execute(
-                f"""SELECT user_status FROM Users WHERE user_id == ?""", (user_id,)
-            ) as cursor:
+            async with self.db.execute(f"""SELECT user_status FROM Users WHERE user_id == ?""", (user_id,)) as cursor:
                 row = await cursor.fetchone()
                 status = row[0] if row else ""
 
@@ -89,9 +85,7 @@ class DatabaseUsers:
     async def get_groups(self) -> list[str]:  # TODO - Unused function?
         """Method for getting all the groups in the database"""
         async with self.lock:
-            async with self.db.execute(
-                f"""SELECT student_group FROM Users """
-            ) as cursor:
+            async with self.db.execute(f"""SELECT student_group FROM Users """) as cursor:
                 row = await cursor.fetchall()
                 groups = set()
 
@@ -220,9 +214,7 @@ class DatabaseUsers:
 
         return mentor_name
 
-    async def change_user_settings(
-        self, setting: str, setting_status: bool, user_id: int
-    ) -> None:
+    async def change_user_settings(self, setting: str, setting_status: bool, user_id: int) -> None:
         """A method for changing user settings"""
         async with self.lock:
             async with self.db.execute(
@@ -309,9 +301,7 @@ class DatabaseUsers:
     async def delete_user(self, user_id: int) -> None:
         """A method for deleting a user from the database"""
         async with self.lock:
-            async with self.db.execute(
-                f"""DELETE FROM Users WHERE user_id == ? """, (user_id,)
-            ):
+            async with self.db.execute(f"""DELETE FROM Users WHERE user_id == ? """, (user_id,)):
                 await self.db.commit()
 
 
@@ -370,9 +360,7 @@ class DatabaseHashes:
         )
         self.conn.commit()
 
-    def check_hash_change(
-        self, group_name: str, date: str, hash_value: str
-    ) -> bool | None:
+    def check_hash_change(self, group_name: str, date: str, hash_value: str) -> bool | None:
         """A method for checking the location of the schedule hash in the database"""
         self.cur.execute(
             "SELECT hash_value FROM schedule_hashes WHERE group_name = ? AND date = ?",
@@ -400,6 +388,72 @@ class DatabaseHashes:
         self.cur.execute("DELETE FROM schedule_hashes WHERE date < ?", (date,))
         self.conn.commit()
         print("#️⃣  Старые записи хешей удалены. 🗑️")
+
+
+class DatabaseScheduleArchive:
+    """A class for working with schedule data"""
+
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+        self.lock = asyncio.Lock()
+
+    async def __aenter__(self):
+        self.db = await aiosqlite.connect(self.db_path)
+        self.db.row_factory = aiosqlite.Row
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        if self.db:
+            await self.db.close()
+
+    @classmethod
+    async def create(cls, db_path: str) -> "DatabaseScheduleArchive":
+        self = cls(db_path)
+        self.db = await aiosqlite.connect(db_path)
+        self.db.row_factory = aiosqlite.Row
+        return self
+
+    async def create_table(self) -> None:
+        """A method for creating a table"""
+        fields_table = """
+        id INTEGER PRIMARY KEY,
+        date INTEGER,
+        group_name TEXT,
+        schedule TEXT,
+        schedule_hash TEXT
+        """
+
+        async with self.lock:
+            async with self.db.execute(f"""CREATE TABLE IF NOT EXISTS schedule_archive ({fields_table})"""):
+                await self.db.commit()
+
+    async def add_schedule(self, date: str, group_name: str, schedule: list, schedule_hash: str) -> None:
+        """A method for add schedule in table"""
+        async with self.lock:
+            async with self.db.execute(
+                f"""INSERT INTO schedule_archive (date, group_name, schedule, schedule_hash) VALUES(?, ?, ?, ?)""",
+                (date, group_name, str(schedule), schedule_hash),
+            ):
+                await self.db.commit()
+
+    async def get_schedule(self, date: str, group_name: str):
+        """A method for add schedule in table"""
+        async with self.lock:
+            async with self.db.execute(
+                f"""SELECT date, group_name, schedule, schedule_hash FROM schedule_archive WHERE date = ? AND group_name = ?""",
+                (date, group_name),
+            ) as cursor:
+                row = await cursor.fetchall()
+                data = []
+
+                for i in row:
+                    temp = []
+                    for j in i:
+                        temp.append(j)
+
+                    data.append(temp)
+
+        return data
 
 
 cipher = Fernet(SECRET_KEY)
