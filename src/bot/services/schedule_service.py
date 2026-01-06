@@ -6,14 +6,9 @@ from datetime import datetime
 import aiohttp
 from aiogram.types import FSInputFile
 from config.paths import WORKSPACE
-from config.requests_data import (
-    base_request_headers,
-    request_data,
-    request_data_mentors,
-    requets_url,
-)
+from config.requests_data import base_request_headers, request_data, request_data_mentors, requets_url
 from config.themes import themes_names
-from phrases import *
+from phrases import have_schedule, no_schedule, no_schedule_mentor_text, no_schedule_text
 from utils.formatters import format_error_message
 from utils.utils import day_week_by_date
 
@@ -50,7 +45,10 @@ class ScheduleService:
 
     @staticmethod
     def _parse_schedule_group_html(html_content: str) -> list[list[str]]:
-        """A method for parsing HTML schedules and returning structured data (crutch)"""
+        """
+        A method for parsing HTML schedules and
+        returning structured data (crutch)
+        """
         with open(f"{WORKSPACE}schedule.html", "w") as file:
             file.write(html_content)
 
@@ -80,7 +78,10 @@ class ScheduleService:
 
     @staticmethod
     def _parse_schedule_mentor_html(html_content: str) -> list[list[str]]:
-        """A method for parsing HTML schedules and returning structured data (crutch)"""
+        """
+        A method for parsing HTML schedules and
+        returning structured data (crutch)
+        """
         with open(f"{WORKSPACE}schedule.html", "w") as file:
             file.write(html_content)
 
@@ -114,9 +115,7 @@ class ScheduleService:
     async def get_dates_schedule(cls, actual_dates: bool = True) -> list[str] | list:
         """A method for getting the available dates in the schedule"""
         try:
-            response = await cls._send_request(
-                requets_url, base_request_headers, request_data
-            )
+            response = await cls._send_request(requets_url, base_request_headers, request_data)
 
             if not isinstance(response, str):
                 print("Response is not 'str' type - get_dates_schedule")
@@ -127,11 +126,7 @@ class ScheduleService:
 
             if actual_dates:
                 today = datetime.now()
-                actual_dates_list = [
-                    date
-                    for date in dates
-                    if datetime.strptime(date, "%d.%m.%Y") >= today
-                ]
+                actual_dates_list = [date for date in dates if datetime.strptime(date, "%d.%m.%Y") >= today]
                 return actual_dates_list
 
             return dates
@@ -143,9 +138,7 @@ class ScheduleService:
     async def get_groups_schedule(cls) -> list[str]:
         """Method for getting available groups"""
         try:
-            response = await cls._send_request(
-                requets_url, base_request_headers, request_data
-            )
+            response = await cls._send_request(requets_url, base_request_headers, request_data)
 
             if not isinstance(response, str):
                 print("Response is not 'str' type - get_groups_schedule")
@@ -163,9 +156,7 @@ class ScheduleService:
     async def get_names_mentors(cls) -> list[str]:
         """Method for getting available mentors fcs"""
         try:
-            response = await cls._send_request(
-                requets_url, base_request_headers, request_data_mentors
-            )
+            response = await cls._send_request(requets_url, base_request_headers, request_data_mentors)
 
             if not isinstance(response, str):
                 print("Response is not 'str' type - get_groups_schedule")
@@ -193,9 +184,7 @@ class ScheduleService:
         }
 
         try:
-            response = await cls._send_request(
-                requets_url, base_request_headers, request_data_schedule
-            )
+            response = await cls._send_request(requets_url, base_request_headers, request_data_schedule)
 
             if not isinstance(response, str):
                 print("Response is not 'str' type - get_schedule")
@@ -208,9 +197,7 @@ class ScheduleService:
             return []
 
     @classmethod
-    async def send_mentor_schedule(
-        cls, user_id: int, mentor_name: str, filename: str = ""
-    ) -> None:
+    async def send_mentor_schedule(cls, user_id: int, mentor_name: str, filename: str = "") -> None:
         """A method for sending schedules by group"""
         from core.dependencies import container
         from services.image_service import ImageCreator
@@ -221,7 +208,7 @@ class ScheduleService:
             await container.bot.send_message(user_id, no_schedule)
             return
 
-        await container.bot.send_message(user_id, have_schedule)
+        message_have_schedule_mentor = await container.bot.send_message(user_id, have_schedule)
 
         for date in actual_dates:
             data = await cls.get_mentors_schedule(mentor_name, date)
@@ -259,6 +246,8 @@ class ScheduleService:
                 else False
             )
 
+        await container.bot.delete_message(user_id, message_have_schedule_mentor.message_id)
+
     @classmethod
     async def get_schedule(cls, group: str, date: str) -> list[list[str]]:  # TODO
         """Gets the schedule for the specified group by date"""
@@ -273,9 +262,7 @@ class ScheduleService:
         }
 
         try:
-            response = await cls._send_request(
-                requets_url, base_request_headers, request_data_schedule
-            )
+            response = await cls._send_request(requets_url, base_request_headers, request_data_schedule)
 
             if not isinstance(response, str):
                 print("Response is not 'str' type - get_schedule")
@@ -288,9 +275,7 @@ class ScheduleService:
             return []
 
     @classmethod
-    async def send_schedule_by_group(
-        cls, user_id: int, user_group: str, filename: str = ""
-    ) -> None:
+    async def send_schedule_by_group(cls, user_id: int, user_group: str, filename: str = "") -> None:
         """A method for sending schedules by group"""
         from core.dependencies import container
         from services.image_service import ImageCreator
@@ -301,7 +286,7 @@ class ScheduleService:
             await container.bot.send_message(user_id, no_schedule)
             return
 
-        await container.bot.send_message(user_id, have_schedule)
+        message_have_schedule_group = await container.bot.send_message(user_id, have_schedule)
 
         for date in actual_dates:
             data = await cls.get_schedule(user_group, date)
@@ -338,3 +323,5 @@ class ScheduleService:
                 if os.path.exists(f"{WORKSPACE}{user_id}{filename}.jpeg")
                 else False
             )
+
+        await container.bot.delete_message(user_id, message_have_schedule_group.message_id)
