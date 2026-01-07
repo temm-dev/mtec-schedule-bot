@@ -1,11 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import random
-import os
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from matplotlib.cbook import get_sample_data
-from config.paths import WORKSPACE
-from config.paths import PATH_SEASONS
+from config.paths import PATH_SEASONS, WORKSPACE
 from config.themes import themes_names, themes_parameters
 from matplotlib import rcParams
 from matplotlib.table import Table
@@ -51,11 +46,7 @@ class ImageCreator:
             return cls.BASE_FONT_SIZE
 
         scale_factor = max_chars / text_length
-        return int(
-            np.clip(
-                cls.BASE_FONT_SIZE * scale_factor, cls.MIN_FONT_SIZE, cls.BASE_FONT_SIZE
-            )
-        )
+        return int(np.clip(cls.BASE_FONT_SIZE * scale_factor, cls.MIN_FONT_SIZE, cls.BASE_FONT_SIZE))
 
     @staticmethod
     def _wrap_text(text: str, width: int) -> str:
@@ -111,89 +102,9 @@ class ImageCreator:
         if theme not in themes_names:
             raise ValueError(f"Unknown theme: {theme}. Available: {themes_names}")
 
-    @staticmethod
-    def _add_seasonal_decorations(ax, season: str, num_decorations: int = 5) -> None:
-        winter_imgs = os.listdir(PATH_SEASONS + "winter")
-        winter_imgs.remove(".DS_Store")
-        season_images = {
-            "winter": winter_imgs,
-            # "spring": ["branch1.png", "flower1.png", "leaf1.png"],
-            # "summer": ["sun1.png", "palm1.png", "wave1.png"],
-            # "autumn": ["leaf2.png", "branch2.png", "mushroom1.png"],
-        }
-        
-        if season.lower() not in season_images:
-            season = "winter"
-        
-        image_files = season_images[season.lower()]
-        
-        for _ in range(num_decorations):
-            try:
-                img_file = random.choice(image_files)
-                img_path = os.path.join(PATH_SEASONS, season.lower(), img_file)
-                
-                # Load image
-                img = plt.imread(img_path)
-                
-                img_height, img_width = img.shape[0], img.shape[1]
-                
-                zoom = random.uniform(0.02, 0.07)
-                margin = zoom * 0.8
-                
-                x_pos = random.uniform(margin, 1.0 - margin)
-                y_pos = random.uniform(margin, 1.0 - margin)
-                
-                rotation = random.uniform(0, 360)
-                
-                imagebox = OffsetImage(img, zoom=zoom, alpha=0.3)
-                
-                ab = AnnotationBbox(imagebox, (x_pos, y_pos),
-                                xycoords='axes fraction',
-                                frameon=False,
-                                boxcoords="offset points",
-                                pad=0)
-                
-                ab.set_clip_on(True)
-                ab.set_zorder(10)
-                
-                ax.add_artist(ab)
-                
-            except FileNotFoundError:
-                print(f"Warning: Decoration image not found: {img_path}")
-                continue
-            except Exception as e:
-                print(f"Warning: Could not add decoration: {e}")
-                continue
-
-    @classmethod
-    def _add_random_decorations(cls, ax, num_decorations: int = 8) -> None:
-        fallback_symbols = ["❄️", "🍃", "🌸", "☀️", "🍂", "🌿", "⭐", "🎨"]
-        
-        for _ in range(num_decorations):
-            x = random.uniform(0.05, 0.95)
-            y = random.uniform(0.05, 0.95)
-            
-            symbol = random.choice(fallback_symbols)
-            # symbol = "❄️"
-            fontsize = random.randint(15, 25)
-            alpha = random.uniform(0.15, 0.25)
-            
-            ax.text(x, y, symbol, fontsize=fontsize, alpha=alpha,
-                transform=ax.transAxes, ha='center', va='center',
-                color='gray', zorder=10,
-                rotation=random.uniform(0, 360))
-
     @classmethod
     async def create_schedule_image(
-        cls,
-        data: list,
-        date: str,
-        number_rows: int,
-        filename: str,
-        group: str,
-        theme: str = "Classic",
-        add_decorations: bool = True,
-        season: str = None, # type: ignore
+        cls, data: list, date: str, number_rows: int, filename: str, group: str, theme: str = "Classic"
     ) -> None:
         """A method for creating a timetable image with optional decorations"""
 
@@ -269,27 +180,6 @@ class ImageCreator:
                 cell.get_text().set_linespacing(1.2)
 
         ax.add_table(tbl)
-
-        if add_decorations:
-            if season is None:
-                try:
-                    month = int(date.split('.')[1]) if '.' in date else 1
-                    if month in [12, 1, 2]:
-                        season = "winter"
-                    elif month in [3, 4, 5]:
-                        season = "spring"
-                    elif month in [6, 7, 8]:
-                        season = "summer"
-                    else:
-                        season = "autumn"
-                except:
-                    season = "winter"  # default
-            
-            try:
-                cls._add_random_decorations(ax, num_decorations=random.randint(10, 15))
-                # cls._add_seasonal_decorations(ax, season, num_decorations=random.randint(5, 10))
-            except:
-                cls._add_random_decorations(ax, num_decorations=random.randint(10, 15))
 
         fig.patch.set_facecolor("black")
         plt.savefig(
