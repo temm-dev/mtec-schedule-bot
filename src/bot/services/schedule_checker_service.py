@@ -1,3 +1,4 @@
+import ast
 import asyncio
 import os
 import random
@@ -24,15 +25,16 @@ class ScheduleChecker:
 
     SLEEP_NIGHT = 3600
     SLEEP_DAY = 180
-    NIGHT_HOURS = (22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8)
+    NIGHT_HOURS = (22, 23, 0, 1, 2, 3, 4, 5, 6, 7)
 
-    def __init__(self, bot, db_users, db_hashes):
+    def __init__(self, bot, db_users, db_hashes, db_schedule_archive):
         """Initializing necessary dependencies"""
         self.bot = bot
         self.db_users = db_users
         self.db_hashes = db_hashes
+        self.db_schedule_archive = db_schedule_archive
         self.schedule_service = ScheduleService()
-        self.limiter = AsyncLimiter(10, 5)
+        self.limiter = AsyncLimiter(15, 7)
 
     @classmethod
     async def is_night_time(cls) -> bool:
@@ -57,14 +59,37 @@ class ScheduleChecker:
                 print(f"Ожидание... ⏳ I-{iteration}")
                 iteration += 1
                 await asyncio.sleep(self.SLEEP_DAY)
-
         except Exception as e:
             print(format_error_message(self.run_schedule_check.__name__, e))
             await asyncio.sleep(3)
 
+    async def process_update_archive(self, dates: list) -> None:
+        groups = await self.db_users.get_groups()
+        mentors = await self.db_users.get_mentors()
+
+        for date in dates:
+            for group in groups:
+                schedule = await self.schedule_service.get_schedule(group, date)
+                if not schedule:
+                    continue
+                hash_value: str = await generate_hash(schedule)
+                await self.db_schedule_archive.students_update_archive(date, group, schedule, hash_value)
+
+            for mentor in mentors:
+                mentor_name = mentor[1]
+                schedule = await self.schedule_service.get_mentors_schedule(mentor_name, date)
+                if not schedule:
+                    continue
+                hash_value: str = await generate_hash(schedule)
+                await self.db_schedule_archive.mentors_update_archive(date, mentor_name, schedule, hash_value)
+
     async def process_schedule_updates(self) -> None:
         """A method for schedule processing"""
         actual_dates = await self.schedule_service.get_dates_schedule()
+        actual_current_dates = await self.schedule_service.get_actual_current_dates()
+
+        # Добавление расписания в архив
+        await self.process_update_archive(actual_current_dates)
 
         with open(f"{WORKSPACE}current_date.txt", "r") as file:
             current_dates = list(set(file.read().splitlines()))
@@ -73,6 +98,7 @@ class ScheduleChecker:
         print(f"{actual_dates} - actual")
 
         # Фильтрация новых дат, которые не были отправлены
+        # ? Использовать actual_current_dates вместо current_dates???
         new_dates: list[str] = [date for date in actual_dates if date not in current_dates]
 
         if new_dates:
@@ -82,54 +108,25 @@ class ScheduleChecker:
             with open(f"{WORKSPACE}current_date.txt", "r") as file:
                 current_dates = list(set(file.read().splitlines()))
 
-        # updated_current_dates = list(
-        #    set(current_dates) & set(actual_dates)
-        # )  # Только общие даты
-
-        # groups = await self.db_users.get_groups()
-
-        # for group in groups:
-        #    for date in updated_current_dates:
-        #        schedule = await self.schedule_service.get_schedule(group, date)
-
-        #        await self.check_schedule_change(group, date, schedule) # type: ignore
-
     async def handle_new_schedules(self, new_dates: list[str], actual_dates: list[str]) -> None:
         """A method for processing the schedule that appears"""
         groups = await self.db_users.get_groups()
 
-        start_send_time = time.time()
-
+        start = time.perf_counter()
         await self.send_schedule_mentors(new_dates)
-
-        await self.send_schedule_groups(new_dates, groups)  # Начало рассылки расписания
-
-        end_send_time = time.time()
+        await self.send_schedule_groups(new_dates, groups)
+        end = time.perf_counter()
 
         with open(f"{WORKSPACE}current_date.txt", "a") as file:
             file.write("\n")
             file.write("\n".join(actual_dates))
 
-        total_seconds = end_send_time - start_send_time
+        total_seconds = end - start
         minutes = total_seconds // 60
         seconds = total_seconds % 60
 
         print("\nРасписание отправлено ✅")
-        print(f"Затраченное время: {minutes}m {seconds:2f}s - {total_seconds}s")
-
-    async def check_schedule_change(self, group: str, date: str, schedule: list[list[str]]) -> None:
-        """A method for tracking schedule changes"""
-        try:
-            hash_value: str = await generate_hash(schedule)
-
-            if self.db_hashes.check_hash_change(group, date, hash_value) == True:
-                print(f"Расписание у группы {group} - {date} изменилось")
-
-                self.db_hashes.change_hash(group, date, hash_value)
-                await self.send_schedule_groups([date], [group], True)
-
-        except Exception as e:
-            print(format_error_message(self.check_schedule_change.__name__, e))
+        print(f"Затраченное время: {minutes}m {seconds:2f}s ({total_seconds})s")
 
     async def safe_send_photo(self, user_id: int, photo, updated: bool):
         """Method for sending schedule photos"""
@@ -298,7 +295,9 @@ class ScheduleChecker:
                 users: list[int] = await self.db_users.get_users_by_group(group)
 
                 for date in new_dates:
-                    schedule = await self.schedule_service.get_schedule(group, date)
+                    schedule = await self.db_schedule_archive.get_schedule_students(date, group)
+                    if isinstance(schedule, str):
+                        schedule = ast.literal_eval(schedule)
 
                     print(f"date: {date}")
                     print(f"group: {group}")
@@ -322,10 +321,6 @@ class ScheduleChecker:
                         filename = f"{group}_{theme}.jpeg"
                         (os.remove(f"{WORKSPACE}{filename}") if os.path.exists(f"{WORKSPACE}{filename}") else False)
 
-                    # if not updated_schedule:
-                    #    hash_value: str = await generate_hash(schedule) # type: ignore
-                    #    self.db_hashes.add_hash(group, date, hash_value)
-
         except Exception as e:
             print(format_error_message(self.send_schedule_groups.__name__, e))
 
@@ -342,7 +337,9 @@ class ScheduleChecker:
                 mentor_name = mentor[1]  # type: ignore
 
                 for date in new_dates:
-                    schedule = await self.schedule_service.get_mentors_schedule(mentor_name, date)
+                    schedule = await self.db_schedule_archive.get_schedule_mentors(date, mentor_name)
+                    if isinstance(schedule, str):
+                        schedule = ast.literal_eval(schedule)
 
                     if not any(schedule):
                         day = day_week_by_date(date)
