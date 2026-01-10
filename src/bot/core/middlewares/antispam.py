@@ -1,7 +1,7 @@
 import time
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from aiogram.dispatcher.middlewares.base import BaseMiddleware
 from aiogram.types import Message
@@ -10,10 +10,10 @@ from aiogram.types import Message
 class AntiSpamMiddleware(BaseMiddleware):
     def __init__(
         self,
-        limit: int = 7,
-        interval: int = 30,
-        warn_threshold: int = 3,
-        mute_duration: int = 300,
+        limit: int = 10,
+        interval: int = 15,
+        warn_threshold: int = 7,
+        mute_duration: int = 120,
         check_repetition: bool = True,
         check_links: bool = True,
     ):
@@ -32,7 +32,7 @@ class AntiSpamMiddleware(BaseMiddleware):
         self.user_links = defaultdict(list)
 
     async def __call__(self, handler, event: Message, data: Dict[str, Any]):
-        user_id = event.from_user.id
+        user_id = event.from_user.id  # type: ignore
         current_time = time.time()
 
         if await self._check_mute(user_id, current_time):
@@ -45,17 +45,11 @@ class AntiSpamMiddleware(BaseMiddleware):
             await self._handle_flood(event, user_id, current_time)
             return
 
-        if self.check_repetition and await self._check_repetition(
-            event, user_id, current_time
-        ):
+        if self.check_repetition and await self._check_repetition(event, user_id, current_time):
             await self._handle_spam(event, user_id, "Повторение сообщений")
             return
 
-        if (
-            self.check_links
-            and event.text
-            and await self._check_links(event, user_id, current_time)
-        ):
+        if self.check_links and event.text and await self._check_links(event, user_id, current_time):
             await self._handle_spam(event, user_id, "Флуд ссылками")
             return
 
@@ -73,9 +67,7 @@ class AntiSpamMiddleware(BaseMiddleware):
         return False
 
     def _clean_old_data(self, user_id: int, current_time: float):
-        self.user_timestamps[user_id] = [
-            t for t in self.user_timestamps[user_id] if current_time - t < self.interval
-        ]
+        self.user_timestamps[user_id] = [t for t in self.user_timestamps[user_id] if current_time - t < self.interval]
 
         if user_id in self.last_messages:
             self.last_messages[user_id] = [
@@ -86,9 +78,7 @@ class AntiSpamMiddleware(BaseMiddleware):
 
         if user_id in self.user_links:
             self.user_links[user_id] = [
-                t
-                for t in self.user_links[user_id]
-                if current_time - t < 60  # 60 секунд для проверки ссылок
+                t for t in self.user_links[user_id] if current_time - t < 60  # 60 секунд для проверки ссылок
             ]
 
     async def _check_flood(self, user_id: int, current_time: float) -> bool:
@@ -96,27 +86,23 @@ class AntiSpamMiddleware(BaseMiddleware):
             return True
         return False
 
-    async def _check_repetition(
-        self, event: Message, user_id: int, current_time: float
-    ) -> bool:
+    async def _check_repetition(self, event: Message, user_id: int, current_time: float) -> bool:
         if not event.text or len(event.text) < 3:
             return False
 
         self.last_messages[user_id].append((event.text, current_time))
 
         recent_messages = [msg for msg, t in self.last_messages[user_id]]
-        if recent_messages.count(event.text) >= 3:
+        if recent_messages.count(event.text) >= 7:
             return True
 
         return False
 
-    async def _check_links(
-        self, event: Message, user_id: int, current_time: float
-    ) -> bool:
+    async def _check_links(self, event: Message, user_id: int, current_time: float) -> bool:
         import re
 
         link_patterns = [r"https?://", r"www\.", r"t\.me/", r"@[A-Za-z0-9_]{5,}"]
-        has_link = any(re.search(pattern, event.text) for pattern in link_patterns)
+        has_link = any(re.search(pattern, event.text) for pattern in link_patterns)  # type: ignore
 
         if has_link:
             self.user_links[user_id].append(current_time)
@@ -149,19 +135,14 @@ class AntiSpamMiddleware(BaseMiddleware):
             )
 
     async def _handle_spam(self, event: Message, user_id: int, reason: str):
-        print(
-            f"[SPAM DETECTED] User: {user_id}, Reason: {reason}, Time: {datetime.now()}"
-        )
+        print(f"[SPAM DETECTED] User: {user_id}, Reason: {reason}, Time: {datetime.now()}")
 
         current_time = time.time()
         mute_until = current_time + self.mute_duration * 2  # Удвоенное время за спам
         self.muted_users[user_id] = mute_until
         mute_time = datetime.fromtimestamp(mute_until).strftime("%H:%M:%S")
 
-        await event.answer(
-            f"⛔ Обнаружено подозрительное поведение ({reason}).\n"
-            f"Вы ограничены до {mute_time}"
-        )
+        await event.answer(f"⛔ Обнаружено подозрительное поведение ({reason}).\n" f"Вы ограничены до {mute_time}")
 
     async def reset_user(self, user_id: int):
         self.user_timestamps.pop(user_id, None)
@@ -179,7 +160,6 @@ class AntiSpamMiddleware(BaseMiddleware):
             "messages_limit": self.limit,
             "warnings": self.user_warnings.get(user_id, 0),
             "warn_threshold": self.warn_threshold,
-            "is_muted": user_id in self.muted_users
-            and current_time < self.muted_users[user_id],
+            "is_muted": user_id in self.muted_users and current_time < self.muted_users[user_id],
             "mute_until": self.muted_users.get(user_id),
         }
