@@ -82,10 +82,12 @@ class DatabaseUsers:
 
         return users_ids
 
-    async def get_groups(self) -> list[str]:  # TODO - Unused function?
+    async def get_groups(self) -> list[str]:
         """Method for getting all the groups in the database"""
         async with self.lock:
-            async with self.db.execute(f"""SELECT student_group FROM Users """) as cursor:
+            async with self.db.execute(
+                f"""SELECT student_group FROM Users WHERE user_status = ?""", ("student",)
+            ) as cursor:
                 row = await cursor.fetchall()
                 groups = set()
 
@@ -391,8 +393,6 @@ class DatabaseHashes:
 
 
 class DatabaseScheduleArchive:
-    """A class for working with schedule data"""
-
     def __init__(self, db_path: str):
         self.db_path = db_path
         self.lock = asyncio.Lock()
@@ -413,9 +413,8 @@ class DatabaseScheduleArchive:
         self.db.row_factory = aiosqlite.Row
         return self
 
-    async def create_table(self) -> None:
-        """A method for creating a table"""
-        fields_table = """
+    async def create_tables(self) -> None:
+        fields_table_students = """
         id INTEGER PRIMARY KEY,
         date INTEGER,
         group_name TEXT,
@@ -423,37 +422,110 @@ class DatabaseScheduleArchive:
         schedule_hash TEXT
         """
 
-        async with self.lock:
-            async with self.db.execute(f"""CREATE TABLE IF NOT EXISTS schedule_archive ({fields_table})"""):
-                await self.db.commit()
+        fields_table_mentors = """
+        id INTEGER PRIMARY KEY,
+        date INTEGER,
+        mentor_name TEXT,
+        schedule TEXT,
+        schedule_hash TEXT
+        """
 
-    async def add_schedule(self, date: str, group_name: str, schedule: list, schedule_hash: str) -> None:
-        """A method for add schedule in table"""
         async with self.lock:
             async with self.db.execute(
-                f"""INSERT INTO schedule_archive (date, group_name, schedule, schedule_hash) VALUES(?, ?, ?, ?)""",
+                f"""CREATE TABLE IF NOT EXISTS schedule_archive_students ({fields_table_students})"""
+            ):
+                await self.db.commit()
+
+            async with self.db.execute(
+                f"""CREATE TABLE IF NOT EXISTS schedule_archive_mentors ({fields_table_mentors})"""
+            ):
+                await self.db.commit()
+
+    async def get_schedule_students(self, date: str, group_name: str):
+        async with self.lock:
+            async with self.db.execute(
+                f"""SELECT schedule FROM schedule_archive_students WHERE date = ? AND group_name = ?""",
+                (date, group_name),
+            ) as cursor:
+                rows = await cursor.fetchone()
+                if rows:
+                    return rows[0]
+
+                return []
+
+    async def get_schedule_mentors(self, date: str, mentor_name: str):
+        async with self.lock:
+            async with self.db.execute(
+                f"""SELECT schedule FROM schedule_archive_mentors WHERE date = ? AND mentor_name = ?""",
+                (date, mentor_name),
+            ) as cursor:
+                rows = await cursor.fetchone()
+                if rows:
+                    return rows[0]
+
+                return []
+
+    async def students_schedule_in(self, date: str, group_name: str) -> bool:
+        async with self.lock:
+            async with self.db.execute(
+                f"""SELECT * FROM schedule_archive_students WHERE date = ? AND group_name = ?""",
+                (date, group_name),
+            ) as cursor:
+                row = await cursor.fetchall()
+                return bool(row)
+
+    async def mentors_schedule_in(self, date: str, mentor_name: str) -> bool:
+        async with self.lock:
+            async with self.db.execute(
+                f"""SELECT * FROM schedule_archive_mentors WHERE date = ? AND mentor_name = ?""",
+                (date, mentor_name),
+            ) as cursor:
+                row = await cursor.fetchall()
+                return bool(row)
+
+    async def students_insert_data(self, date: str, group_name: str, schedule: list, schedule_hash: str):
+        async with self.lock:
+            async with self.db.execute(
+                f"""INSERT INTO schedule_archive_students (date, group_name, schedule, schedule_hash) VALUES(?, ?, ?, ?)""",
                 (date, group_name, str(schedule), schedule_hash),
             ):
                 await self.db.commit()
 
-    async def get_schedule(self, date: str, group_name: str):
-        """A method for add schedule in table"""
+    async def mentors_insert_data(self, date: str, mentor_name: str, schedule: list, schedule_hash: str):
         async with self.lock:
             async with self.db.execute(
-                f"""SELECT date, group_name, schedule, schedule_hash FROM schedule_archive WHERE date = ? AND group_name = ?""",
-                (date, group_name),
-            ) as cursor:
-                row = await cursor.fetchall()
-                data = []
+                f"""INSERT INTO schedule_archive_mentors (date, mentor_name, schedule, schedule_hash) VALUES(?, ?, ?, ?)""",
+                (date, mentor_name, str(schedule), schedule_hash),
+            ):
+                await self.db.commit()
 
-                for i in row:
-                    temp = []
-                    for j in i:
-                        temp.append(j)
+    async def students_update_data(self, date: str, group_name: str, schedule: list, schedule_hash: str):
+        async with self.lock:
+            async with self.db.execute(
+                f"""UPDATE schedule_archive_students SET schedule = ?, schedule_hash = ? WHERE date = ? AND group_name = ?""",
+                (str(schedule), schedule_hash, date, group_name),
+            ):
+                await self.db.commit()
 
-                    data.append(temp)
+    async def mentors_update_data(self, date: str, mentor_name: str, schedule: list, schedule_hash: str):
+        async with self.lock:
+            async with self.db.execute(
+                f"""UPDATE schedule_archive_mentors SET schedule = ?, schedule_hash = ? WHERE date = ? AND mentor_name = ?""",
+                (str(schedule), schedule_hash, date, mentor_name),
+            ):
+                await self.db.commit()
 
-        return data
+    async def students_update_archive(self, date: str, group_name: str, schedule: list, schedule_hash: str) -> None:
+        if await self.students_schedule_in(date, group_name):
+            await self.students_update_data(date, group_name, schedule, schedule_hash)
+        else:
+            await self.students_insert_data(date, group_name, schedule, schedule_hash)
+
+    async def mentors_update_archive(self, date: str, mentor_name: str, schedule: list, schedule_hash: str) -> None:
+        if await self.mentors_schedule_in(date, mentor_name):
+            await self.mentors_update_data(date, mentor_name, schedule, schedule_hash)
+        else:
+            await self.mentors_insert_data(date, mentor_name, schedule, schedule_hash)
 
 
 cipher = Fernet(SECRET_KEY)
