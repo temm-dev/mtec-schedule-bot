@@ -1,3 +1,4 @@
+import ast
 import asyncio
 import os
 import re
@@ -129,7 +130,27 @@ class ScheduleService:
                 actual_dates_list = [date for date in dates if datetime.strptime(date, "%d.%m.%Y") >= today]
                 return actual_dates_list
 
+            today = datetime.now().strftime("%d.%m.%Y")
+            dates.insert(0, today)
+
+            dates = list(set(dates))
+
             return dates
+        except Exception as e:
+            print(format_error_message(cls.get_dates_schedule.__name__, e))
+            return []
+
+    @classmethod
+    async def get_actual_current_dates(cls) -> list[str] | list:
+        """A method for getting the available dates in the schedule"""
+        try:
+            with open(f"{WORKSPACE}current_date.txt", "r") as file:
+                current_dates = list(set(file.read().splitlines()))
+
+            today = datetime.now().strftime("%d.%m.%Y")
+            actual_current_dates_list = [date for date in current_dates if date >= today]
+
+            return actual_current_dates_list
         except Exception as e:
             print(format_error_message(cls.get_dates_schedule.__name__, e))
             return []
@@ -183,18 +204,25 @@ class ScheduleService:
             "rtype": "prep",
         }
 
-        try:
-            response = await cls._send_request(requets_url, base_request_headers, request_data_schedule)
+        for _ in range(1, 3 + 1):
+            try:
+                response = await cls._send_request(requets_url, base_request_headers, request_data_schedule)
 
-            if not isinstance(response, str):
-                print("Response is not 'str' type - get_schedule")
-                return []
+                data = []
+                if isinstance(response, str):
+                    data = cls._parse_schedule_mentor_html(response)
 
-            return cls._parse_schedule_mentor_html(response)
+                # При получении пустого списка пропускаем итерацию - пробуем получить снова
+                if not data:
+                    continue
 
-        except Exception as e:
-            print(format_error_message(cls.get_schedule.__name__, e))
-            return []
+                # При получении расписания возвращаем его
+                return data
+            except Exception as e:
+                print(format_error_message(cls.get_mentors_schedule.__name__, e))
+        else:
+            # Возвращаем пустой список, если не получили расписание
+            return data
 
     @classmethod
     async def send_mentor_schedule(cls, user_id: int, mentor_name: str, filename: str = "") -> None:
@@ -211,7 +239,9 @@ class ScheduleService:
         message_have_schedule_mentor = await container.bot.send_message(user_id, have_schedule)
 
         for date in actual_dates:
-            data = await cls.get_mentors_schedule(mentor_name, date)
+            data = await container.db_schedule_archive.get_schedule_mentors(date, mentor_name)
+            if isinstance(data, str):
+                data = ast.literal_eval(data)
 
             if not any(data):
                 day = day_week_by_date(date)
@@ -249,7 +279,7 @@ class ScheduleService:
         await container.bot.delete_message(user_id, message_have_schedule_mentor.message_id)
 
     @classmethod
-    async def get_schedule(cls, group: str, date: str) -> list[list[str]]:  # TODO
+    async def get_schedule(cls, group: str, date: str) -> list[list[str]]:
         """Gets the schedule for the specified group by date"""
         cls._validation_arguments(group, date)
 
@@ -261,18 +291,25 @@ class ScheduleService:
             "rtype": "stds",
         }
 
-        try:
-            response = await cls._send_request(requets_url, base_request_headers, request_data_schedule)
+        for _ in range(1, 3 + 1):
+            try:
+                response = await cls._send_request(requets_url, base_request_headers, request_data_schedule)
 
-            if not isinstance(response, str):
-                print("Response is not 'str' type - get_schedule")
-                return []
+                if isinstance(response, str):
+                    data = cls._parse_schedule_group_html(response)
 
-            return cls._parse_schedule_group_html(response)
+                # При получении пустого списка пропускаем итерацию
+                if not data:
+                    continue
 
-        except Exception as e:
-            print(format_error_message(cls.get_schedule.__name__, e))
-            return []
+                # При получении расписания возвращаем его
+                return data
+            except Exception as e:
+                print(format_error_message(cls.get_schedule.__name__, e))
+
+        else:
+            # Возвращаем пустой список, если не получили расписание
+            return data
 
     @classmethod
     async def send_schedule_by_group(cls, user_id: int, user_group: str, filename: str = "") -> None:
@@ -289,7 +326,10 @@ class ScheduleService:
         message_have_schedule_group = await container.bot.send_message(user_id, have_schedule)
 
         for date in actual_dates:
-            data = await cls.get_schedule(user_group, date)
+            data = await container.db_schedule_archive.get_schedule_students(date, user_group)
+
+            if isinstance(data, str):
+                data = ast.literal_eval(data)
 
             if not any(data):
                 day = day_week_by_date(date)
