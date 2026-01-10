@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from config.paths import PATH_SEASONS, WORKSPACE
+from config.paths import WORKSPACE
 from config.themes import themes_names, themes_parameters
 from matplotlib import rcParams
 from matplotlib.table import Table
@@ -26,7 +26,7 @@ class ImageCreator:
         rcParams.update(
             {
                 "figure.max_open_warning": 0,
-                "figure.dpi": 150,
+                "figure.dpi": 300,
                 "savefig.bbox": "tight",
                 "savefig.format": "jpeg",
                 "font.family": "sans-serif",
@@ -112,7 +112,7 @@ class ImageCreator:
 
         day_of_week_name = day_week_by_date(date)
 
-        columns = ["№", f"\n{group}\n\n{day_of_week_name} - {date}\n", "Ауд"]
+        columns = ["№", f"\n{group}\n\n{date} ({day_of_week_name})\n", "Ауд"]
 
         fig, ax = plt.subplots(figsize=(7, number_rows + 0.5))
         ax.set_axis_off()
