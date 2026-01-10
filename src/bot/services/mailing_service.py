@@ -12,31 +12,23 @@ class MessageSender:
     SEND_DELAY = 0.1
 
     def __init__(self) -> None:
-        self.limiter = AsyncLimiter(10, 3)
+        self.limiter = AsyncLimiter(15, 7)
 
     @classmethod
-    async def _send_single_message(
-        cls, user_id: Union[str, int], message: str, report_to_admin: bool = False
-    ) -> bool:
+    async def _send_single_message(cls, user_id: Union[str, int], message: str, report_to_admin: bool = False) -> bool:
         """The method of sending a single message"""
         try:
-            await container.bot.send_message(
-                user_id, message, parse_mode=cls.PARSE_MODE
-            )
+            await container.bot.send_message(user_id, message, parse_mode=cls.PARSE_MODE)
 
             if report_to_admin:
-                await container.bot.send_message(
-                    ADMIN, f"{user_id} - Сообщение доставлено ✅"
-                )
+                await container.bot.send_message(ADMIN, f"{user_id} - Сообщение доставлено ✅")
 
             print(f"{user_id} - Сообщение доставлено ✅")
             return True
 
         except Exception as e:
             if report_to_admin:
-                await container.bot.send_message(
-                    ADMIN, f"{user_id} - Ошибка доставки ❌\n{str(e)}"
-                )
+                await container.bot.send_message(ADMIN, f"{user_id} - Ошибка доставки ❌\n{str(e)}")
             print(f"{user_id} - Сообщение не доставлено ❌\n{e}")
             return False
 
@@ -57,9 +49,7 @@ class MessageSender:
                     failed_users.append(user_id)
 
         if failed_users:
-            print(
-                f"Сообщение не доставлено {len(failed_users)} пользователям\n{failed_users}"
-            )
+            print(f"Сообщение не доставлено {len(failed_users)} пользователям\n{failed_users}")
 
     async def send_message_to_group(self, group: str, message: str) -> None:
         """A method for sending a message to a group of users"""
@@ -73,6 +63,4 @@ class MessageSender:
                     failed_users.append(user_id)
 
         if failed_users:
-            print(
-                f"Сообщение не доставлено {len(failed_users)} пользователям группы\n{failed_users}"
-            )
+            print(f"Сообщение не доставлено {len(failed_users)} пользователям группы\n{failed_users}")
