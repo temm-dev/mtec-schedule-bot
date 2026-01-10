@@ -2,13 +2,7 @@ import asyncio
 import copy
 import re
 
-from aiogram.types import (
-    FSInputFile,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
-)
+from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.media_group import MediaGroupBuilder
 from config.paths import PATH_CALL_IMG
 from config.themes import paths_to_photo_theme, themes_parameters
@@ -70,9 +64,7 @@ async def create_mentors_fcs_keyboard():
 
 inline_status_list = [
     [
-        InlineKeyboardButton(
-            text="👩‍🏫 Преподаватель", callback_data="👩‍🏫 Преподаватель"
-        ),
+        InlineKeyboardButton(text="👩‍🏫 Преподаватель", callback_data="👩‍🏫 Преподаватель"),
         InlineKeyboardButton(text="👨‍🎓 Студент", callback_data="👨‍🎓 Студент"),
     ]
 ]
@@ -92,12 +84,8 @@ inline_additional_functions_list = [
     [InlineKeyboardButton(text="🌐 Сайт колледжа", url="https://mtec.by/ru/")],
     [InlineKeyboardButton(text="📆 Расписание", callback_data="📆 Расписание")],
     [
-        InlineKeyboardButton(
-            text="👨‍🎓 Учащиеся", url="https://mtec.by/ru/students/schedule"
-        ),
-        InlineKeyboardButton(
-            text="🧑‍🏫 Преподаватели", url="https://mtec.by/ru/workers/schedule"
-        ),
+        InlineKeyboardButton(text="👨‍🎓 Учащиеся", url="https://mtec.by/ru/students/schedule"),
+        InlineKeyboardButton(text="🧑‍🏫 Преподаватели", url="https://mtec.by/ru/workers/schedule"),
     ],
 ]
 
@@ -105,27 +93,15 @@ inline_additional_functions_list_extended = [
     [InlineKeyboardButton(text="🌐 Сайт колледжа", url="https://mtec.by/ru/")],
     [InlineKeyboardButton(text="📆 Расписание", callback_data="📆 Расписание")],
     [
-        InlineKeyboardButton(
-            text="👨‍🎓 Учащиеся", url="https://mtec.by/ru/students/schedule"
-        ),
-        InlineKeyboardButton(
-            text="🧑‍🏫 Преподаватели", url="https://mtec.by/ru/workers/schedule"
-        ),
+        InlineKeyboardButton(text="👨‍🎓 Учащиеся", url="https://mtec.by/ru/students/schedule"),
+        InlineKeyboardButton(text="🧑‍🏫 Преподаватели", url="https://mtec.by/ru/workers/schedule"),
     ],
-    [
-        InlineKeyboardButton(
-            text="📑 Справки", url="http://178.124.196.1:84/anketa/Home/Spravka"
-        )
-    ],
+    [InlineKeyboardButton(text="📑 Справки", url="http://178.124.196.1:84/anketa/Home/Spravka")],
 ]
 
 inline_additional_functions_bot = [
     [InlineKeyboardButton(text="⚙️ Настройки", callback_data="⚙️ Настройки")],
-    [
-        InlineKeyboardButton(
-            text="❗ Правовая информация", callback_data="❗ Правовая информация"
-        )
-    ],
+    [InlineKeyboardButton(text="⚖️ Правовая информация", callback_data="⚖️ Правовая информация")],
 ]
 
 inline_additional_functions_social_networks_list = [
@@ -143,15 +119,11 @@ inline_additional_functions_social_networks_list = [
     [InlineKeyboardButton(text="Vk", url="https://vk.com/mtecby")],
 ]
 
-inline_markup_additional_functions = InlineKeyboardMarkup(
-    inline_keyboard=inline_additional_functions_list
-)
+inline_markup_additional_functions = InlineKeyboardMarkup(inline_keyboard=inline_additional_functions_list)
 inline_markup_additional_functions_extended = InlineKeyboardMarkup(
     inline_keyboard=inline_additional_functions_list_extended
 )
-inline_markup_additional_functions_bot = InlineKeyboardMarkup(
-    inline_keyboard=inline_additional_functions_bot
-)
+inline_markup_additional_functions_bot = InlineKeyboardMarkup(inline_keyboard=inline_additional_functions_bot)
 inline_markup_additional_functions_social_networks = InlineKeyboardMarkup(
     inline_keyboard=inline_additional_functions_social_networks_list
 )
@@ -170,16 +142,12 @@ reply_additional_functions_list = [
     [KeyboardButton(text="🔍 Дополнительно"), KeyboardButton(text="💬 Помощь")],
 ]
 
-reply_markup_additional_functions = ReplyKeyboardMarkup(
-    keyboard=reply_additional_functions_list
-)
+reply_markup_additional_functions = ReplyKeyboardMarkup(keyboard=reply_additional_functions_list)
 
 
 reply_additional_functions_list_admin = copy.deepcopy(reply_additional_functions_list)
 reply_additional_functions_list_admin.append([KeyboardButton(text="⚙️ Админ панель")])
-reply_markup_additional_functions_admin = ReplyKeyboardMarkup(
-    keyboard=reply_additional_functions_list_admin
-)
+reply_markup_additional_functions_admin = ReplyKeyboardMarkup(keyboard=reply_additional_functions_list_admin)
 
 
 inline_admin_panel_tools_list = [
@@ -202,16 +170,11 @@ inline_admin_panel_tools_list = [
         InlineKeyboardButton(text="Сообщение 🫂", callback_data="Сообщение 🫂"),
     ],
 ]
-inline_markup_admin_panel_tools = InlineKeyboardMarkup(
-    inline_keyboard=inline_admin_panel_tools_list
-)
+inline_markup_admin_panel_tools = InlineKeyboardMarkup(inline_keyboard=inline_admin_panel_tools_list)
 
 
 media_photo_themes = MediaGroupBuilder()
-[
-    media_photo_themes.add(type="photo", media=FSInputFile(path=photo))  # type: ignore
-    for photo in paths_to_photo_theme
-]
+[media_photo_themes.add(type="photo", media=FSInputFile(path=photo)) for photo in paths_to_photo_theme]  # type: ignore
 
 media_photo_themes = media_photo_themes.build()
 

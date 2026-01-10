@@ -5,7 +5,7 @@ from config.bot_config import ADMIN
 
 class LegalInformationFilter(Filter):
     async def __call__(self, cb: CallbackQuery) -> bool:
-        return cb.data == "❗ Правовая информация"
+        return cb.data == "⚖️ Правовая информация"
 
 
 class SettingsFilter(Filter):
