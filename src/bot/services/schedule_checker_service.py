@@ -1,5 +1,6 @@
 import ast
 import asyncio
+import gc
 import os
 import random
 import time
@@ -51,6 +52,10 @@ class ScheduleChecker:
                     print(f"🌙 Остановка проверки на 1ч (ночное время)")
                     print(f"Текущий час: {datetime.now().hour}")
                     self.db_hashes.cleanup_old_hashes()
+
+                    gc.collect()
+                    gc.collect()
+                    print(f"🗑️ Мусор очищен!")
                     await asyncio.sleep(self.SLEEP_NIGHT)
                     continue
 
@@ -66,6 +71,8 @@ class ScheduleChecker:
     async def process_update_archive(self, dates: list) -> None:
         groups = await self.db_users.get_groups()
         mentors = await self.db_users.get_mentors()
+
+        print("Начало добавления расписания в архив")
 
         for date in dates:
             for group in groups:
@@ -89,24 +96,38 @@ class ScheduleChecker:
         actual_current_dates = await self.schedule_service.get_actual_current_dates()
 
         # Добавление расписания в архив
-        await self.process_update_archive(actual_current_dates)
+        await self.process_update_archive(actual_dates)
 
-        with open(f"{WORKSPACE}current_date.txt", "r") as file:
-            current_dates = list(set(file.read().splitlines()))
+        async with aiofiles.open(f"{WORKSPACE}current_date.txt", "r") as file:
+            content = await file.read()
+            current_dates = list(set(content.splitlines()))
 
-        print(f"{current_dates} - sended")
-        print(f"{actual_dates} - actual")
+        print(f"{actual_dates} - now + today")
+        print(f"{actual_current_dates} - sended actual")
+        print(f"{current_dates} - all sended")
 
         # Фильтрация новых дат, которые не были отправлены
-        # ? Использовать actual_current_dates вместо current_dates???
-        new_dates: list[str] = [date for date in actual_dates if date not in current_dates]
+        new_dates: list[str] = [date for date in actual_dates if date not in actual_current_dates]
 
         if new_dates:
             print(f"\n📆 Расписание появилось! {new_dates}")
             await self.handle_new_schedules(new_dates, actual_dates)
 
-            with open(f"{WORKSPACE}current_date.txt", "r") as file:
-                current_dates = list(set(file.read().splitlines()))
+            async with aiofiles.open(f"{WORKSPACE}current_date.txt", "r") as file:
+                content = await file.read()
+                current_dates = list(set(content.splitlines()))
+
+        # updated_current_dates = list(
+        #    set(current_dates) & set(actual_dates)
+        # )  # Только общие даты
+
+        # groups = await self.db_users.get_groups()
+
+        # for group in groups:
+        #    for date in updated_current_dates:
+        #        schedule = await self.schedule_service.get_schedule(group, date)
+
+        #        await self.check_schedule_change(group, date, schedule) # type: ignore
 
     async def handle_new_schedules(self, new_dates: list[str], actual_dates: list[str]) -> None:
         """A method for processing the schedule that appears"""
@@ -196,9 +217,8 @@ class ScheduleChecker:
         for theme in themes_users:
             filename = f"{group}_{theme}"
 
-            image_creator = ImageCreator()
             tasks_create_photo.append(
-                image_creator.create_schedule_image(
+                ImageCreator().create_schedule_image(
                     data=schedule,
                     date=date,
                     number_rows=len(schedule) + 1,
@@ -221,6 +241,8 @@ class ScheduleChecker:
 
             photo = BufferedInputFile(photo_data, filename=f"{WORKSPACE}{filename}.jpeg")
             open_photos[theme] = photo
+
+            del photo_data
 
         return open_photos
 
@@ -286,6 +308,9 @@ class ScheduleChecker:
                     async with self.limiter:
                         await asyncio.create_task(task)
 
+                del tasks
+                await asyncio.sleep(0.001)
+
     async def send_schedule_groups(
         self, new_dates: list[str], groups: list[str], updated_schedule: bool = False
     ) -> None:
@@ -296,6 +321,7 @@ class ScheduleChecker:
 
                 for date in new_dates:
                     schedule = await self.db_schedule_archive.get_schedule_students(date, group)
+
                     if isinstance(schedule, str):
                         schedule = ast.literal_eval(schedule)
 
@@ -320,6 +346,11 @@ class ScheduleChecker:
                     for theme in themes_users:
                         filename = f"{group}_{theme}.jpeg"
                         (os.remove(f"{WORKSPACE}{filename}") if os.path.exists(f"{WORKSPACE}{filename}") else False)
+
+                    del themes_users, open_photos, user_chunks_dict
+                    gc.collect()
+
+                gc.collect()
 
         except Exception as e:
             print(format_error_message(self.send_schedule_groups.__name__, e))
@@ -355,8 +386,7 @@ class ScheduleChecker:
                     user_theme = await self.db_users.get_user_theme(mentor_id)
                     user_theme = "Classic" if user_theme not in themes_names else user_theme
 
-                    image_creator = ImageCreator()
-                    await image_creator.create_schedule_image(
+                    await ImageCreator().create_schedule_image(
                         data=schedule,
                         date=date,
                         number_rows=len(schedule) + 1,
