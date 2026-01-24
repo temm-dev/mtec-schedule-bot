@@ -13,6 +13,11 @@ class SettingsFilter(Filter):
         return cb.data == "⚙️ Настройки"
 
 
+class GetMemoryUsageFilter(Filter):
+    async def __call__(self, cb: CallbackQuery) -> bool:
+        return cb.data == "📊 Memory usage" and cb.from_user.id == ADMIN
+
+
 class GetDBUsersFilter(Filter):
     async def __call__(self, cb: CallbackQuery) -> bool:
         return cb.data == "users 📄" and cb.from_user.id == ADMIN
