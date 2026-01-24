@@ -152,6 +152,7 @@ reply_markup_additional_functions_admin = ReplyKeyboardMarkup(keyboard=reply_add
 
 inline_admin_panel_tools_list = [
     [InlineKeyboardButton(text="🗂️ DATABASE 🗂️", callback_data="🗂️ DATABASE 🗂️")],
+    [InlineKeyboardButton(text="📊 Memory usage", callback_data="📊 Memory usage")],
     [
         InlineKeyboardButton(text="users 📄", callback_data="users 📄"),
         InlineKeyboardButton(text="hashes 📄", callback_data="hashes 📄"),
