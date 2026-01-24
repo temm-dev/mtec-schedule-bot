@@ -2,7 +2,7 @@ import ast
 import asyncio
 import os
 import re
-from datetime import datetime
+from datetime import date, datetime
 
 import aiohttp
 from aiogram.types import FSInputFile
@@ -125,15 +125,18 @@ class ScheduleService:
             date_pattern = r">(\d{1,2}\.\d{1,2}\.\d{4})<"
             dates = re.findall(date_pattern, response)
 
-            if actual_dates:
-                today = datetime.now()
-                actual_dates_list = [date for date in dates if datetime.strptime(date, "%d.%m.%Y") >= today]
-                return actual_dates_list
-
             today = datetime.now().strftime("%d.%m.%Y")
-            dates.insert(0, today)
+            day = day_week_by_date(today)
 
-            dates = list(set(dates))
+            if day != "Воскресенье":
+                dates.insert(0, today)
+                dates = list(set(dates))
+                dates = sorted(dates, key=lambda x: datetime.strptime(x, "%d.%m.%Y"))
+
+            if actual_dates:
+                today = date.today()
+                actual_dates_list = [date for date in dates if datetime.strptime(date, "%d.%m.%Y").date() >= today]
+                return actual_dates_list
 
             return dates
         except Exception as e:
@@ -148,7 +151,9 @@ class ScheduleService:
                 current_dates = list(set(file.read().splitlines()))
 
             today = datetime.now().strftime("%d.%m.%Y")
-            actual_current_dates_list = [date for date in current_dates if date >= today]
+            dates = [date for date in current_dates if date >= today]
+
+            actual_current_dates_list = sorted(dates, key=lambda x: datetime.strptime(x, "%d.%m.%Y"))
 
             return actual_current_dates_list
         except Exception as e:
@@ -230,7 +235,7 @@ class ScheduleService:
         from core.dependencies import container
         from services.image_service import ImageCreator
 
-        actual_dates = await cls.get_dates_schedule(actual_dates=False)
+        actual_dates = await cls.get_actual_current_dates()
 
         if not any(actual_dates):
             await container.bot.send_message(user_id, no_schedule)
@@ -317,7 +322,7 @@ class ScheduleService:
         from core.dependencies import container
         from services.image_service import ImageCreator
 
-        actual_dates = await cls.get_dates_schedule(actual_dates=False)
+        actual_dates = await cls.get_actual_current_dates()
 
         if not any(actual_dates):
             await container.bot.send_message(user_id, no_schedule)
