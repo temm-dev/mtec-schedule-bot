@@ -3,18 +3,22 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from core.dependencies import container
-from phrases import *
+from phrases import (
+    change_data_text,
+    correctly_entered_data_text,
+    deleted_user_ejournal_info_text,
+    enter_fio_text,
+    enter_password_text,
+    incorrectly_entered_data_text,
+    no_data_text,
+)
 from services.journal_service import send_ejournal_file
 
 from ..fsm.states import EJournalFSM
-from ..middlewares.antispam import AntiSpamMiddleware
-from ..middlewares.blacklist import BlacklistMiddleware
 from .common import cancel_action_handler
 from .decorators import event_handler
 
 router = Router()
-router.message.middleware(BlacklistMiddleware())
-router.message.middleware(AntiSpamMiddleware())
 
 
 def register(dp: Dispatcher):

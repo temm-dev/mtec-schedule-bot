@@ -4,19 +4,15 @@ from aiogram.types import CallbackQuery, Message
 from config.settings import settings_dict_text
 from config.themes import themes_names
 from core.dependencies import container
-from phrases import *
+from phrases import change_theme_text, selected_theme_text, settings_help_text, settings_text
 from utils.keyboard import build_settings_keyboard
 from utils.markup import inline_markup_select_theme, media_photo_themes
 
 from ..filters.custom_filters import ScheduleStyle, SettingsFilter
 from ..fsm.states import ChangeSettingsFSM, SelectThemeFSM
-from ..middlewares.antispam import AntiSpamMiddleware
-from ..middlewares.blacklist import BlacklistMiddleware
 from .decorators import event_handler
 
 router = Router()
-router.message.middleware(BlacklistMiddleware())
-router.message.middleware(AntiSpamMiddleware())
 
 
 def register(dp: Dispatcher):
@@ -29,16 +25,11 @@ async def select_theme_handler(cb: CallbackQuery, state: FSMContext) -> None:
     user_id = cb.from_user is not None and cb.from_user.id
     user_theme = await container.db_users.get_user_theme(user_id)
 
-    media_group_message = await container.bot.send_media_group(
-        user_id, media_photo_themes
-    )
+    media_group_message = await container.bot.send_media_group(user_id, media_photo_themes)
 
     need_to_delete = []
     amount_items = len(media_group_message)
-    [
-        need_to_delete.append(media_group_message[item].message_id)
-        for item in range(0, amount_items)
-    ]
+    [need_to_delete.append(media_group_message[item].message_id) for item in range(0, amount_items)]
     await state.update_data(need_to_delete=need_to_delete)
 
     await container.bot.send_message(
@@ -112,9 +103,7 @@ async def change_settings(cb: CallbackQuery, state: FSMContext) -> None:
 
     # Переключаем настройку
     current_value = user_settings.get(user_action)
-    await container.db_users.change_user_settings(
-        user_action, not current_value, user_id
-    )
+    await container.db_users.change_user_settings(user_action, not current_value, user_id)
 
     # Обновляем настройки и клавиатуру
     user_settings = await container.db_users.get_user_settigs(user_id)

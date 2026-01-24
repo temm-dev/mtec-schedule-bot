@@ -3,7 +3,13 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from core.dependencies import container
-from phrases import *
+from phrases import (
+    checking_schedule_text,
+    choosen_schedule_group_text,
+    choosen_schedule_mentor_text,
+    schedule_group_text,
+    schedule_mentor_text,
+)
 from services.schedule_service import ScheduleService
 from utils.markup import (
     inline_markup_select_group,
@@ -13,13 +19,9 @@ from utils.markup import (
 )
 
 from ..fsm.states import SelectGroupScheduleFSM, SelectMentorScheduleFSM
-from ..middlewares.antispam import AntiSpamMiddleware
-from ..middlewares.blacklist import BlacklistMiddleware
 from .decorators import event_handler
 
 router = Router()
-router.message.middleware(BlacklistMiddleware())
-router.message.middleware(AntiSpamMiddleware())
 
 schedule_service = ScheduleService()
 
@@ -63,9 +65,7 @@ async def send_call_schedule_handler(ms: Message, state: FSMContext) -> None:
 @router.message(F.text == "👩‍🏫 Расписание преподавателя")
 @event_handler(admin_check=False)
 async def schedule_mentor(ms: Message, state: FSMContext) -> None:
-    message = await ms.answer(
-        schedule_mentor_text, reply_markup=inline_markup_select_mentors_fcs
-    )
+    message = await ms.answer(schedule_mentor_text, reply_markup=inline_markup_select_mentors_fcs)
     await state.update_data(message_id=message.message_id)
     await state.set_state(SelectMentorScheduleFSM.select_mentor_schedule)
 
@@ -92,9 +92,7 @@ async def schedule_mentor_check(cb: CallbackQuery, state: FSMContext) -> None:
         reply_markup=None,
     )
 
-    await schedule_service.send_mentor_schedule(
-        user_id, mentor_name, "_mentor_schedule"
-    )
+    await schedule_service.send_mentor_schedule(user_id, mentor_name, "_mentor_schedule")
 
     await container.bot.edit_message_text(
         chat_id=chat_id,
@@ -110,9 +108,7 @@ async def schedule_mentor_check(cb: CallbackQuery, state: FSMContext) -> None:
 @router.message(F.text == "👥 Расписание группы")
 @event_handler(admin_check=False)
 async def schedule_group(ms: Message, state: FSMContext) -> None:
-    message = await ms.answer(
-        schedule_group_text, reply_markup=inline_markup_select_group
-    )
+    message = await ms.answer(schedule_group_text, reply_markup=inline_markup_select_group)
     await state.update_data(message_id=message.message_id)
     await state.set_state(SelectGroupScheduleFSM.select_group_schedule)
 

@@ -39,13 +39,9 @@ from utils.markup import (
 
 from ..filters.custom_filters import LegalInformationFilter
 from ..fsm.states import SelectGroupFSM, SelectMentorNameFSM, SelectStatusFSM, SupportFSM
-from ..middlewares.antispam import AntiSpamMiddleware
-from ..middlewares.blacklist import BlacklistMiddleware
 from .decorators import event_handler
 
 router = Router()
-router.message.middleware(BlacklistMiddleware())
-router.message.middleware(AntiSpamMiddleware())
 
 schedule_service = ScheduleService()
 
