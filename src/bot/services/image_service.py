@@ -1,3 +1,5 @@
+import gc
+
 import matplotlib.pyplot as plt
 import numpy as np
 from config.paths import WORKSPACE
@@ -17,9 +19,6 @@ class ImageCreator:
     BASE_FONT_SIZE = 10
     MIN_FONT_SIZE = 8
 
-    def __init__(self) -> None:
-        self._setup_matplotlib()
-
     @classmethod
     def _setup_matplotlib(cls) -> None:
         """Basic setup of matplotlib before getting started"""
@@ -33,9 +32,9 @@ class ImageCreator:
                 "font.size": 8,
                 "text.color": "black",
                 "axes.edgecolor": "black",
+                "figure.autolayout": True,
             }
         )
-
         plt.switch_backend("Agg")
 
     @classmethod
@@ -107,6 +106,9 @@ class ImageCreator:
         cls, data: list, date: str, number_rows: int, filename: str, group: str, theme: str = "Classic"
     ) -> None:
         """A method for creating a timetable image with optional decorations"""
+        if not hasattr(cls, "_matplotlib_setup_done"):
+            cls._setup_matplotlib()
+            cls._matplotlib_setup_done = True
 
         cls._validation_arguments(data, date, number_rows, theme)
 
@@ -114,82 +116,120 @@ class ImageCreator:
 
         columns = ["№", f"\n{group}\n\n{date} ({day_of_week_name})\n", "Ауд"]
 
-        fig, ax = plt.subplots(figsize=(7, number_rows + 0.5))
-        ax.set_axis_off()
+        try:
+            fig, ax = plt.subplots(figsize=(7, number_rows + 0.5), dpi=300)
+            ax.set_axis_off()
 
-        tbl = Table(ax, bbox=[0, 0, 1, 1])  # type: ignore
-        col_widths = [0.15, 0.7, 0.15]
-        height_header = 0.30
-        row_height_base = (1 - height_header) / len(data)
+            tbl = Table(ax, bbox=[0, 0, 1, 1])  # type: ignore
+            col_widths = [0.15, 0.7, 0.15]
+            height_header = 0.30
+            row_height_base = (1 - height_header) / max(len(data), 1)
 
-        for col_idx, col_name in enumerate(columns):
-            cell = tbl.add_cell(
-                0,
-                col_idx,
-                col_widths[col_idx],
-                row_height_base,
-                text=col_name,
-                loc="center",
-                facecolor=themes_parameters[theme][0],
-                edgecolor=themes_parameters[theme][1],
-            )
-            cell.get_text().set_color(themes_parameters[theme][2])
-            cell.get_text().set_weight("bold")  # type: ignore
-            cell.get_text().set_fontsize(10)
-
-        for row_idx, row_data in enumerate(data, start=1):
-            processed_cells = []
-            max_lines = 1
-
-            for col_idx, cell_text in enumerate(row_data):
-                text = str(cell_text)
-
-                if col_idx == 1:
-                    text = cls._wrap_teacher_text(text)
-
-                    if "\n" in text:
-                        subject_part, teacher_part = text.split("\n", 1)
-                        wrapped_subject = cls._wrap_text(subject_part, 35)
-                        text = f"{wrapped_subject}\n{teacher_part}"
-                    else:
-                        text = cls._wrap_text(text, 35)
-
-                if len(text) > 200:
-                    text = text[:197] + "..."
-
-                processed_cells.append(text)
-                max_lines = max(max_lines, len(text.split("\n")))
-
-            row_height = row_height_base * (0.3 + 0.10 * max_lines)
-
-            for col_idx, (text, width) in enumerate(zip(processed_cells, col_widths)):
-                font_size = cls._auto_font_size(text)
-
+            # Создаем заголовок
+            for col_idx, col_name in enumerate(columns):
                 cell = tbl.add_cell(
-                    row_idx,
+                    0,
                     col_idx,
                     col_widths[col_idx],
-                    row_height,
-                    text=text,
+                    row_height_base,
+                    text=col_name,
                     loc="center",
-                    facecolor=themes_parameters[theme][3],
-                    edgecolor=themes_parameters[theme][4],
+                    facecolor=themes_parameters[theme][0],
+                    edgecolor=themes_parameters[theme][1],
                 )
-                cell.get_text().set_color(themes_parameters[theme][5])
-                cell.get_text().set_fontsize(font_size)
-                cell.get_text().set_linespacing(1.2)
+                cell_text = cell.get_text()
+                cell_text.set_color(themes_parameters[theme][2])
+                cell_text.set_weight("bold")  # type: ignore
+                cell_text.set_fontsize(10)
 
-        ax.add_table(tbl)
+            # Создаем строки с данными
+            for row_idx, row_data in enumerate(data, start=1):
+                processed_cells = []
+                max_lines = 1
 
-        fig.patch.set_facecolor("black")
-        plt.savefig(
-            f"{WORKSPACE}{filename}.jpeg",
-            transparent=False,
-            format="jpeg",
-            pad_inches=0.01,
-            dpi=300,
-            bbox_inches="tight",
-            facecolor=fig.get_facecolor(),
-        )
+                for col_idx, cell_text in enumerate(row_data):
+                    text = str(cell_text)
 
-        plt.close()
+                    if col_idx == 1:
+                        text = cls._wrap_teacher_text(text)
+
+                        if "\n" in text:
+                            subject_part, teacher_part = text.split("\n", 1)
+                            wrapped_subject = cls._wrap_text(subject_part, 35)
+                            text = f"{wrapped_subject}\n{teacher_part}"
+                        else:
+                            text = cls._wrap_text(text, 35)
+
+                    if len(text) > 200:
+                        text = text[:197] + "..."
+
+                    processed_cells.append(text)
+                    max_lines = max(max_lines, len(text.split("\n")))
+
+                row_height = row_height_base * (0.3 + 0.10 * max_lines)
+
+                for col_idx, (text, width) in enumerate(zip(processed_cells, col_widths)):
+                    font_size = cls._auto_font_size(text)
+
+                    cell = tbl.add_cell(
+                        row_idx,
+                        col_idx,
+                        col_widths[col_idx],
+                        row_height,
+                        text=text,
+                        loc="center",
+                        facecolor=themes_parameters[theme][3],
+                        edgecolor=themes_parameters[theme][4],
+                    )
+                    cell_text = cell.get_text()
+                    cell_text.set_color(themes_parameters[theme][5])
+                    cell_text.set_fontsize(font_size)
+                    cell_text.set_linespacing(1.2)
+
+            ax.add_table(tbl)
+
+            # Используем временный файл
+            temp_path = f"{WORKSPACE}{filename}.jpeg"
+
+            fig.patch.set_facecolor("black")
+            plt.savefig(
+                temp_path,
+                transparent=False,
+                format="jpeg",
+                pad_inches=0.01,
+                dpi=300,  # Уменьшил DPI
+                bbox_inches="tight",
+                facecolor=fig.get_facecolor(),
+            )
+
+        finally:
+            # ВАЖНО: Правильная последовательность закрытия
+            if "tbl" in locals():
+                tbl.remove()  # Удаляем таблицу явно
+                del tbl
+
+            if "ax" in locals():
+                ax.cla()  # Очищаем оси
+                ax.remove()  # Удаляем оси
+                del ax
+
+            if "fig" in locals():
+                plt.close(fig)  # Закрываем фигуру
+                fig.clear()  # Очищаем фигуру
+                del fig
+
+            # Очищаем кэш matplotlib
+            plt.clf()
+            plt.cla()
+
+            # Принудительная сборка мусора
+            gc.collect()
+
+    @classmethod
+    async def cleanup(cls):
+        """Очистка ресурсов matplotlib"""
+        plt.close("all")
+        import matplotlib
+
+        matplotlib.pyplot.switch_backend("Agg")  # Сбрасываем бэкенд # type: ignore
+        gc.collect()
