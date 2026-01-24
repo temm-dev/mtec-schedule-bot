@@ -6,6 +6,7 @@ extras/
 secret.key
 temp.py
 .pre-commit-config.yaml
+bot_config.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
