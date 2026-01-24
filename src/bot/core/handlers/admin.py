@@ -1,6 +1,7 @@
 from aiogram import Dispatcher, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+from aiogram.types.input_file import FSInputFile
 from config.bot_config import ADMIN
 from config.paths import WORKSPACE, PATH_DBs
 from core.dependencies import container
@@ -15,27 +16,25 @@ from phrases import (
     user_in_blacklist_text,
 )
 from services.mailing_service import MessageSender
-from utils.markup import FSInputFile, inline_markup_admin_panel_tools, inline_markup_select_group
+from utils.markup import inline_markup_admin_panel_tools, inline_markup_select_group
+from utils.utils import get_memory_info
 
 from ..filters.custom_filters import (
     BlockUserFilter,
     GetDBHashesFilter,
     GetDBUsersFilter,
     GetLogsFilter,
+    GetMemoryUsageFilter,
     GetSupportJournalFilter,
     SendMessageGroupFilter,
     SendMessageUserFilter,
     SendMessageUsersFilter,
 )
 from ..fsm.states import BlockUserFSM, SendMessageGroupFSM, SendMessageUserFSM, SendMessageUsersFSM
-from ..middlewares.antispam import AntiSpamMiddleware
-from ..middlewares.blacklist import BlacklistMiddleware
 from .common import cancel_action_handler
 from .decorators import event_handler
 
 router = Router()
-router.message.middleware(BlacklistMiddleware())
-router.message.middleware(AntiSpamMiddleware())
 
 message_sender = MessageSender()
 
@@ -48,6 +47,12 @@ def register(dp: Dispatcher):
 @event_handler()
 async def admin_panel_handler(ms: Message, state: FSMContext) -> None:
     await ms.answer(admin_panel_text, reply_markup=inline_markup_admin_panel_tools)
+
+
+@router.callback_query(GetMemoryUsageFilter())
+@event_handler()
+async def get_memory_usege_callback(cb: CallbackQuery, state: FSMContext) -> None:
+    await container.bot.send_message(ADMIN, get_memory_info())
 
 
 @router.callback_query(GetDBUsersFilter())
