@@ -1,4 +1,3 @@
-import ast
 import asyncio
 import gc
 import os
@@ -20,6 +19,8 @@ from utils.hash import generate_hash
 from utils.log import print_sent
 from utils.utils import day_week_by_date
 
+from bot.services.database import ChatRepository, ScheduleArchiveRepository, ScheduleHashRepository, UserRepository
+
 
 class ScheduleChecker:
     """A class for tracking schedule appearances and changes"""
@@ -28,12 +29,10 @@ class ScheduleChecker:
     SLEEP_DAY = 180
     NIGHT_HOURS = (22, 23, 0, 1, 2, 3, 4, 5, 6, 7)
 
-    def __init__(self, bot, db_users, db_hashes, db_schedule_archive):
+    def __init__(self, bot, db_manager):
         """Initializing necessary dependencies"""
         self.bot = bot
-        self.db_users = db_users
-        self.db_hashes = db_hashes
-        self.db_schedule_archive = db_schedule_archive
+        self.db_manager = db_manager
         self.schedule_service = ScheduleService()
         self.limiter = AsyncLimiter(15, 7)
 
@@ -44,14 +43,15 @@ class ScheduleChecker:
 
     async def run_schedule_check(self) -> None:
         """Start tracking the appearance and schedule changes"""
-        print("Проверка расписания запущена ✅ 🔄")
         iteration = 1
         try:
             while True:
                 if await self.is_night_time():
                     print(f"🌙 Остановка проверки на 1ч (ночное время)")
                     print(f"Текущий час: {datetime.now().hour}")
-                    self.db_hashes.cleanup_old_hashes()
+
+                    async for session in self.db_manager.get_session():  # type: ignore
+                        await ScheduleHashRepository.cleanup_old_hashes(session)
 
                     gc.collect()
                     gc.collect()
@@ -69,8 +69,13 @@ class ScheduleChecker:
             await asyncio.sleep(3)
 
     async def process_update_archive(self, dates: list) -> None:
-        groups = await self.db_users.get_groups()
-        mentors = await self.db_users.get_mentors()
+        async with aiofiles.open(f"{WORKSPACE}all_groups.txt", "r") as file:
+            content = await file.read()
+            groups = list(set(content.splitlines()))
+
+        async with aiofiles.open(f"{WORKSPACE}all_mentors.txt", "r") as file:
+            content = await file.read()
+            mentors = list(set(content.splitlines()))
 
         print("Начало добавления расписания в архив")
 
@@ -80,15 +85,18 @@ class ScheduleChecker:
                 if not schedule:
                     continue
                 hash_value: str = await generate_hash(schedule)
-                await self.db_schedule_archive.students_update_archive(date, group, schedule, hash_value)
+
+                async for session in self.db_manager.get_session():  # type: ignore
+                    await ScheduleArchiveRepository.update_student_schedule(session, date, group, schedule, hash_value)
 
             for mentor in mentors:
-                mentor_name = mentor[1]
-                schedule = await self.schedule_service.get_mentors_schedule(mentor_name, date)
+                schedule = await self.schedule_service.get_mentors_schedule(mentor, date)
                 if not schedule:
                     continue
                 hash_value: str = await generate_hash(schedule)
-                await self.db_schedule_archive.mentors_update_archive(date, mentor_name, schedule, hash_value)
+
+                async for session in self.db_manager.get_session():  # type: ignore
+                    await ScheduleArchiveRepository.update_mentor_schedule(session, date, mentor, schedule, hash_value)
 
     async def process_schedule_updates(self) -> None:
         """A method for schedule processing"""
@@ -131,16 +139,18 @@ class ScheduleChecker:
 
     async def handle_new_schedules(self, new_dates: list[str], actual_dates: list[str]) -> None:
         """A method for processing the schedule that appears"""
-        groups = await self.db_users.get_groups()
-
-        start = time.perf_counter()
-        await self.send_schedule_mentors(new_dates)
-        await self.send_schedule_groups(new_dates, groups)
-        end = time.perf_counter()
+        async for session in self.db_manager.get_session():  # type: ignore
+            groups = await UserRepository.get_all_groups(session)
 
         with open(f"{WORKSPACE}current_date.txt", "a") as file:
             file.write("\n")
             file.write("\n".join(actual_dates))
+
+        start = time.perf_counter()
+        await self.send_schedule_mentors(new_dates)
+        await self.send_schedule_chats(new_dates)
+        await self.send_schedule_groups(new_dates, groups)
+        end = time.perf_counter()
 
         total_seconds = end - start
         minutes = total_seconds // 60
@@ -178,7 +188,8 @@ class ScheduleChecker:
 
     async def get_all_schedule(self, dates: list[str]) -> dict[str, list[list]]:
         """A method for getting a schedule for each group"""
-        groups = await self.db_users.get_groups()
+        async for session in self.db_manager.get_session():  # type: ignore
+            groups = await UserRepository.get_all_groups(session)
 
         coroutines = [self.schedule_service.get_schedule(group, date) for date in dates for group in groups]
 
@@ -199,7 +210,8 @@ class ScheduleChecker:
         users_id: list[int] = []
 
         for theme in themes_names:
-            users_id: list[int] = await self.db_users.get_users_by_theme(group, theme)
+            async for session in self.db_manager.get_session():  # type: ignore
+                users_id: list[int] = await UserRepository.get_users_by_group_and_theme(session, group, theme)
 
             if any(users_id):
                 themes_users[theme] = users_id
@@ -317,13 +329,12 @@ class ScheduleChecker:
         """The method for sending the schedule"""
         try:
             for group in groups:
-                users: list[int] = await self.db_users.get_users_by_group(group)
+                async for session in self.db_manager.get_session():  # type: ignore
+                    users: list[int] = await UserRepository.get_users_by_group(session, group)
 
                 for date in new_dates:
-                    schedule = await self.db_schedule_archive.get_schedule_students(date, group)
-
-                    if isinstance(schedule, str):
-                        schedule = ast.literal_eval(schedule)
+                    async for session in self.db_manager.get_session():  # type: ignore
+                        schedule = await ScheduleArchiveRepository.get_student_schedule(session, date, group)
 
                     print(f"date: {date}")
                     print(f"group: {group}")
@@ -361,16 +372,16 @@ class ScheduleChecker:
     ) -> None:
         """The method for sending the schedule for mentors"""
         try:
-            mentors: list = await self.db_users.get_mentors()
+            async for session in self.db_manager.get_session():  # type: ignore
+                mentors: list = await UserRepository.get_all_mentors(session)
 
             for mentor in mentors:
                 mentor_id = mentor[0]  # type: ignore
                 mentor_name = mentor[1]  # type: ignore
 
                 for date in new_dates:
-                    schedule = await self.db_schedule_archive.get_schedule_mentors(date, mentor_name)
-                    if isinstance(schedule, str):
-                        schedule = ast.literal_eval(schedule)
+                    async for session in self.db_manager.get_session():  # type: ignore
+                        schedule = await ScheduleArchiveRepository.get_mentor_schedule(session, date, mentor_name)
 
                     if not any(schedule):
                         day = day_week_by_date(date)
@@ -383,8 +394,8 @@ class ScheduleChecker:
 
                         continue
 
-                    user_theme = await self.db_users.get_user_theme(mentor_id)
-                    user_theme = "Classic" if user_theme not in themes_names else user_theme
+                    async for session in self.db_manager.get_session():  # type: ignore
+                        user_theme = await UserRepository.get_user_theme(session, mentor_id)
 
                     await ImageCreator().create_schedule_image(
                         data=schedule,
@@ -407,3 +418,86 @@ class ScheduleChecker:
 
         except Exception as e:
             print(format_error_message(self.send_schedule_mentors.__name__, e))
+
+    async def send_schedule_chats(self, new_dates: list[str], updated_schedule: bool = False) -> None:
+        """The method for sending the schedule"""
+        try:
+            async for session in self.db_manager.get_session():  # type: ignore
+                chats = await ChatRepository.get_all_chats_with_subscriptions(session)
+
+            for chat in chats:
+                chat_id = chat["chat_id"]
+                group = chat["subscribed_to_group"]
+                mentor = chat["subscribed_to_mentor"]
+
+                for date in new_dates:
+                    async for session in self.db_manager.get_session():  # type: ignore
+                        schedule_group = await ScheduleArchiveRepository.get_student_schedule(session, date, group)
+                        schedule_mentor = await ScheduleArchiveRepository.get_mentor_schedule(session, date, mentor)
+
+                    if not any(schedule_group):
+                        day = day_week_by_date(date)
+                        print(no_schedule_text.format(group=group, date=date, day=day))
+                        await self.bot.send_message(
+                            chat_id,
+                            no_schedule_text.format(group=group, date=date, day=day),
+                            parse_mode="HTML",
+                        )
+                    else:
+                        await ImageCreator().create_schedule_image(
+                            data=schedule_group,
+                            date=date,
+                            number_rows=len(schedule_group) + 1,
+                            filename=f"{chat_id}{group}",
+                            group=group,
+                            theme="Classic",
+                        )
+
+                        photo = FSInputFile(path=f"{WORKSPACE}{chat_id}{group}.jpeg")
+
+                        await self.safe_send_photo(chat_id, photo, updated=False)
+
+                        (
+                            os.remove(f"{WORKSPACE}{chat_id}{group}.jpeg")
+                            if os.path.exists(f"{WORKSPACE}{chat_id}{group}.jpeg")
+                            else False
+                        )
+
+                        del photo
+                        gc.collect()
+
+                    if not any(schedule_mentor):
+                        day = day_week_by_date(date)
+                        print(no_schedule_mentor_text.format(mentor_name=mentor, date=date, day=day))
+                        await self.bot.send_message(
+                            chat_id,
+                            no_schedule_mentor_text.format(mentor_name=mentor, date=date, day=day),
+                            parse_mode="HTML",
+                        )
+                    else:
+                        await ImageCreator().create_schedule_image(
+                            data=schedule_mentor,
+                            date=date,
+                            number_rows=len(schedule_mentor) + 1,
+                            filename=f"{chat_id}{mentor}",
+                            group=mentor,
+                            theme="Classic",
+                        )
+
+                        photo = FSInputFile(path=f"{WORKSPACE}{chat_id}{mentor}.jpeg")
+
+                        await self.safe_send_photo(chat_id, photo, updated=False)
+
+                        (
+                            os.remove(f"{WORKSPACE}{chat_id}{mentor}.jpeg")
+                            if os.path.exists(f"{WORKSPACE}{chat_id}{mentor}.jpeg")
+                            else False
+                        )
+
+                        del photo
+                        gc.collect()
+
+                gc.collect()
+
+        except Exception as e:
+            print(format_error_message(self.send_schedule_groups.__name__, e))
