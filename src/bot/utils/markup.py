@@ -2,9 +2,10 @@ import asyncio
 import copy
 import re
 
+import aiofiles
 from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.media_group import MediaGroupBuilder
-from config.paths import PATH_CALL_IMG
+from config.paths import PATH_CALL_IMG, WORKSPACE
 from config.themes import paths_to_photo_theme, themes_parameters
 
 from .keyboard import build_inline_keyboard
@@ -23,13 +24,22 @@ def sort_key(group):
 async def get_groups_schedule_wrapper() -> list[str]:
     from services.schedule_service import ScheduleService
 
-    return await ScheduleService().get_groups_schedule()
+    groups = await ScheduleService().get_groups_schedule()
+    groups = sorted(set(groups), key=sort_key)
+
+    return groups
 
 
 async def get_mentors_names_schedule_wrapper() -> dict[str, str]:
     from services.schedule_service import ScheduleService
 
     mentors_names = await ScheduleService().get_names_mentors()
+
+    async with aiofiles.open(f"{WORKSPACE}all_mentors.txt", "w") as file:
+        for mentor in mentors_names:
+            await file.write(mentor)
+            await file.write("\n")
+
     mentors_initials = format_names(mentors_names)
 
     mentors_dict = dict(zip(mentors_initials, mentors_names))
@@ -42,7 +52,12 @@ mentors_dict = asyncio.run(get_mentors_names_schedule_wrapper())
 
 async def create_groups_keyboard():
     groups = await get_groups_schedule_wrapper()
-    groups = sorted(set(groups), key=sort_key)
+
+    async with aiofiles.open(f"{WORKSPACE}all_groups.txt", "w") as file:
+        for group in groups:
+            await file.write(group)
+            await file.write("\n")
+
     return InlineKeyboardMarkup(inline_keyboard=build_inline_keyboard(groups))  # type: ignore
 
 
