@@ -87,7 +87,7 @@ class AntiSpamMiddleware(BaseMiddleware):
         return False
 
     async def _check_repetition(self, event: Message, user_id: int, current_time: float) -> bool:
-        if not event.text or len(event.text) < 3:
+        if not event.text or len(event.text) < 7:
             return False
 
         self.last_messages[user_id].append((event.text, current_time))
@@ -107,7 +107,7 @@ class AntiSpamMiddleware(BaseMiddleware):
         if has_link:
             self.user_links[user_id].append(current_time)
 
-            if len(self.user_links[user_id]) > 2:
+            if len(self.user_links[user_id]) > 7:
                 return True
 
         return False
