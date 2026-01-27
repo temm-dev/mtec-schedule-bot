@@ -148,9 +148,9 @@ class ImageCreator:
                 max_lines = 1
 
                 for col_idx, cell_text in enumerate(row_data):
-                    text = str(cell_text)
+                    text = str(cell_text).strip()
 
-                    if col_idx == 1:
+                    if col_idx == 1:  # Обработка столбца "Наименование"
                         text = cls._wrap_teacher_text(text)
 
                         if "\n" in text:
@@ -159,6 +159,84 @@ class ImageCreator:
                             text = f"{wrapped_subject}\n{teacher_part}"
                         else:
                             text = cls._wrap_text(text, 35)
+
+                    elif col_idx == 2:  # Обработка столбца "Ауд"
+                        # Проверяем, является ли текст простым номером аудитории
+                        # Простые номера: только цифры (44, 36, 32) или цифры с одной буквой в конце (32а)
+
+                        # Удаляем все пробелы для проверки
+                        clean_text = text.replace(" ", "")
+
+                        # Проверяем разные варианты:
+                        # 1. Только цифры (44, 36, 101)
+                        # 2. Цифры с одной русской или латинской буквой в конце (32а, 44b)
+                        # 3. Цифры с дефисом между цифрами (1-10)
+
+                        is_simple_number = False
+
+                        if clean_text.isdigit():
+                            # Только цифры
+                            is_simple_number = True
+                        elif len(clean_text) <= 4 and clean_text[:-1].isdigit() and clean_text[-1].isalpha():
+                            # Цифры с одной буквой в конце (до 4 символов)
+                            is_simple_number = True
+                        elif "-" in clean_text and all(part.isdigit() for part in clean_text.split("-")):
+                            # Диапазон номеров (1-10)
+                            is_simple_number = True
+
+                        # Если это не простой номер, разбиваем на строки
+                        if not is_simple_number:
+                            words = text.split()
+                            if len(words) == 1:
+                                # Одно слово, проверяем длину
+                                if len(text) <= 8:
+                                    # Короткое слово (до 8 символов) не разбиваем
+                                    pass
+                                else:
+                                    # Длинное слово, пытаемся найти естественное место разрыва
+                                    # Ищем место для разрыва после 4-8 символов
+                                    ideal_break = min(6, len(text) - 3)  # Стараемся разбить после 6 символов
+
+                                    # Пытаемся найти согласную, за которой идет гласная (более естественное место разрыва)
+                                    vowels = "аеёиоуыэюяaeiouy"
+                                    best_break = -1
+
+                                    # Ищем место разрыва в диапазоне от 4 до 8 символов
+                                    for i in range(4, min(9, len(text) - 2)):
+                                        # Предпочитаем разрыв после согласной, перед гласной
+                                        if i < len(text) - 1 and text[i] in vowels and text[i - 1] not in vowels:
+                                            best_break = i
+                                            break
+                                        # Или разрыв между двумя согласными
+                                        elif i < len(text) - 1 and text[i] not in vowels and text[i + 1] not in vowels:
+                                            best_break = i + 1
+                                            break
+
+                                    # Если не нашли хорошее место, разбиваем пополам
+                                    if best_break == -1:
+                                        best_break = len(text) // 2
+
+                                    text = f"{text[:best_break]}\n{text[best_break:]}"
+
+                            elif len(words) == 2:
+                                # Два слова
+                                text = f"{words[0]}\n{words[1]}"
+                            else:
+                                # Три и больше слов
+                                # Просто объединяем все слова, разделяя пробелами, и разбиваем пополам по длине
+                                full_text = " ".join(words)
+                                total_length = len(full_text)
+                                mid_point = total_length // 2
+
+                                # Ищем ближайший пробел к середине
+                                space_indices = [i for i, char in enumerate(full_text) if char == " "]
+                                if space_indices:
+                                    closest_space = min(space_indices, key=lambda x: abs(x - mid_point))
+                                    text = f"{full_text[:closest_space]}\n{full_text[closest_space+1:]}"
+                                else:
+                                    # Не должно случиться, но на всякий случай
+                                    mid = total_length // 2
+                                    text = f"{full_text[:mid]}\n{full_text[mid:]}"
 
                     if len(text) > 200:
                         text = text[:197] + "..."
@@ -197,7 +275,7 @@ class ImageCreator:
                 transparent=False,
                 format="jpeg",
                 pad_inches=0.01,
-                dpi=300,  # Уменьшил DPI
+                dpi=300,
                 bbox_inches="tight",
                 facecolor=fig.get_facecolor(),
             )
@@ -224,12 +302,3 @@ class ImageCreator:
 
             # Принудительная сборка мусора
             gc.collect()
-
-    @classmethod
-    async def cleanup(cls):
-        """Очистка ресурсов matplotlib"""
-        plt.close("all")
-        import matplotlib
-
-        matplotlib.pyplot.switch_backend("Agg")  # Сбрасываем бэкенд # type: ignore
-        gc.collect()
