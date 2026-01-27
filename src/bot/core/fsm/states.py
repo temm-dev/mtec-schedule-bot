@@ -13,6 +13,14 @@ class SelectGroupFSM(StatesGroup):
     select_group = State()
 
 
+class ChatSelectMentorNameFSM(StatesGroup):
+    select_mentor_name = State()
+
+
+class ChatSelectGroupFSM(StatesGroup):
+    select_group = State()
+
+
 class SelectGroupScheduleFSM(StatesGroup):
     select_group_schedule = State()
 
