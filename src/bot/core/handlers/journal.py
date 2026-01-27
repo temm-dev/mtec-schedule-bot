@@ -1,4 +1,5 @@
 from aiogram import Dispatcher, F, Router
+from aiogram.enums import ChatType
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
@@ -14,6 +15,8 @@ from phrases import (
 )
 from services.journal_service import send_ejournal_file
 
+from bot.services.database import UserRepository
+
 from ..fsm.states import EJournalFSM
 from .common import cancel_action_handler
 from .decorators import event_handler
@@ -25,11 +28,13 @@ def register(dp: Dispatcher):
     dp.include_router(router)
 
 
-@router.message(F.text == "📖 Электронный журнал")
+@router.message(F.text == "📖 Электронный журнал", F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def ejournal_handler(ms: Message, state: FSMContext) -> None:
     user_id = ms.from_user is not None and ms.from_user.id
-    user_info: list = await container.db_users.get_user_ejournal_info(user_id)
+
+    async for session in container.db_manager.get_session():  # type: ignore
+        user_info: list = await UserRepository.get_user_ejournal_info(session, user_id)
 
     if not user_info == []:
         await send_ejournal_file(user_id)
@@ -39,7 +44,7 @@ async def ejournal_handler(ms: Message, state: FSMContext) -> None:
         await state.set_state(EJournalFSM.enter_username)
 
 
-@router.message(EJournalFSM.enter_username)
+@router.message(EJournalFSM.enter_username, F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False, clear_state=False)
 async def ejournal_enter_name(ms: Message, state: FSMContext) -> None:
     text = str(ms.text).strip()
@@ -55,7 +60,7 @@ async def ejournal_enter_name(ms: Message, state: FSMContext) -> None:
     await state.set_state(EJournalFSM.enter_password)
 
 
-@router.message(EJournalFSM.enter_password)
+@router.message(EJournalFSM.enter_password, F.chat.type == ChatType.PRIVATE)
 async def ejournal_enter_password(ms: Message, state: FSMContext) -> None:
     text = str(ms.text).strip()
 
@@ -68,7 +73,6 @@ async def ejournal_enter_password(ms: Message, state: FSMContext) -> None:
     password = text
 
     user_id = ms.from_user is not None and ms.from_user.id
-    user_info: list = [username, password]
 
     if not username or not password:
         await ms.answer(incorrectly_entered_data_text, parse_mode="HTML")
@@ -79,7 +83,8 @@ async def ejournal_enter_password(ms: Message, state: FSMContext) -> None:
         await state.set_state(EJournalFSM.enter_username)
         return
 
-    await container.db_users.add_user_ejournal_info(user_id, user_info)
+    async for session in container.db_manager.get_session():  # type: ignore
+        await UserRepository.update_ejournal_info(session, user_id, username, password)
 
     await ms.answer(correctly_entered_data_text, parse_mode="HTML")
     await send_ejournal_file(user_id)
@@ -87,7 +92,7 @@ async def ejournal_enter_password(ms: Message, state: FSMContext) -> None:
     await state.clear()
 
 
-@router.message(Command("change_ejournal_info"))
+@router.message(Command("change_ejournal_info"), F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def change_ejournal_info_handler(ms: Message, state: FSMContext) -> None:
     await ms.answer(change_data_text, parse_mode="HTML")
@@ -95,10 +100,12 @@ async def change_ejournal_info_handler(ms: Message, state: FSMContext) -> None:
     await state.set_state(EJournalFSM.enter_username)
 
 
-@router.message(Command("delete_ejournal_info"))
+@router.message(Command("delete_ejournal_info"), F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def delete_ejournal_info_handler(ms: Message, state: FSMContext) -> None:
     user_id = ms.from_user is not None and ms.from_user.id
 
-    await container.db_users.delete_user_ejournal_info(user_id)
+    async for session in container.db_manager.get_session():  # type: ignore
+        await UserRepository.delete_ejournal_info(session, user_id)
+
     await ms.answer(deleted_user_ejournal_info_text)

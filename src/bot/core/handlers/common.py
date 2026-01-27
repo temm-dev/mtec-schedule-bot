@@ -1,4 +1,5 @@
 from aiogram import Dispatcher, F, Router
+from aiogram.enums import ChatType
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
@@ -37,6 +38,8 @@ from utils.markup import (
     reply_markup_additional_functions_admin,
 )
 
+from bot.services.database import UserRepository
+
 from ..filters.custom_filters import LegalInformationFilter
 from ..fsm.states import SelectGroupFSM, SelectMentorNameFSM, SelectStatusFSM, SupportFSM
 from .decorators import event_handler
@@ -50,25 +53,27 @@ def register(dp: Dispatcher):
     dp.include_router(router)
 
 
-@router.callback_query(LegalInformationFilter())
+@router.callback_query(LegalInformationFilter(), F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False, clear_state=True)
 async def legal_information_callback(cb: CallbackQuery, state: FSMContext) -> None:
     await container.bot.send_message(cb.from_user.id, legal_information, parse_mode="HTML")
 
 
-@router.message(F.content_type.in_({"photo", "video", "audio", "document", "sticker"}))
+@router.message(
+    F.content_type.in_({"photo", "video", "audio", "document", "sticker"}), F.chat.type == ChatType.PRIVATE
+)
 @event_handler(admin_check=False, clear_state=True)
-async def non_text_message_handler(ms: Message):
+async def non_text_message_handler(ms: Message, state: FSMContext):
     await ms.answer(non_text_message_text)
 
 
-@router.message(Command("exit"))
+@router.message(Command("exit"), F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def cancel_action_handler(ms: Message, state: FSMContext) -> None:
     await ms.answer(exit_text)
 
 
-@router.message(Command("restart"))
+@router.message(Command("restart"), F.chat.type == ChatType.PRIVATE)
 @event_handler(log_event=False, admin_check=False)
 async def restart_bot_handler(ms: Message, state: FSMContext) -> None:
     user_id = ms.from_user is not None and ms.from_user.id
@@ -81,7 +86,7 @@ async def restart_bot_handler(ms: Message, state: FSMContext) -> None:
     await ms.answer(restart_text, reply_markup=markup, parse_mode="HTML")
 
 
-@router.message(Command("start"))
+@router.message(Command("start"), F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def start_handler(ms: Message, state: FSMContext) -> None:
     message1 = await ms.answer(text=welcome_text)
@@ -136,12 +141,8 @@ async def selected_mentor_name_callback(ms: Message, state: FSMContext) -> None:
     if not isinstance(mentor_name, str):
         return None
 
-    user_in: bool = await container.db_users.check_user_in_db(user_id)
-
-    if not user_in:
-        await container.db_users.add_user(user_id, "mentor", mentor_name=mentor_name)
-    else:
-        await container.db_users.update_mentor(user_id, mentor_name)
+    async for session in container.db_manager.get_session():  # type: ignore
+        await UserRepository.create_or_update_user(session, user_id, "mentor", mentor_name=mentor_name)
 
     state_data = await state.get_data()
     messages_need_delete_id = state_data.get("messages_id")
@@ -177,12 +178,8 @@ async def selected_group_callback(cb: CallbackQuery, state: FSMContext) -> None:
     if not isinstance(user_group, str):
         return None
 
-    user_in: bool = await container.db_users.check_user_in_db(user_id)
-
-    if not user_in:
-        await container.db_users.add_user(user_id, "student", student_group=user_group)
-    else:
-        await container.db_users.update_student(user_id, user_group)
+    async for session in container.db_manager.get_session():  # type: ignore
+        await UserRepository.create_or_update_user(session, user_id, "student", student_group=user_group)
 
     state_data = await state.get_data()
     messages_need_delete_id = state_data.get("messages_id")
@@ -209,7 +206,7 @@ async def selected_group_callback(cb: CallbackQuery, state: FSMContext) -> None:
     await schedule_service.send_schedule_by_group(user_id, user_group)
 
 
-@router.message(Command("change_group"))
+@router.message(Command("change_group"), F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def change_group_handler(ms: Message, state: FSMContext) -> None:
     message = await ms.answer(change_group_text, reply_markup=inline_markup_select_group)
@@ -217,7 +214,7 @@ async def change_group_handler(ms: Message, state: FSMContext) -> None:
     await state.set_state(SelectGroupFSM.select_group)
 
 
-@router.message(F.text == "🔍 Дополнительно")
+@router.message(F.text == "🔍 Дополнительно", F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def additionally_handler(ms: Message, state: FSMContext) -> None:
     await ms.answer(
@@ -231,7 +228,7 @@ async def additionally_handler(ms: Message, state: FSMContext) -> None:
     await ms.answer(bot_additionally_text, reply_markup=inline_markup_additional_functions_bot)
 
 
-@router.message(Command("support"))
+@router.message(Command("support"), F.chat.type == ChatType.PRIVATE)
 @router.message(F.text == "💬 Помощь")
 @event_handler(admin_check=False)
 async def technical_support_handler(ms: Message, state: FSMContext) -> None:

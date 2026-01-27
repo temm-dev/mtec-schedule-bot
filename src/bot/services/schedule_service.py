@@ -1,4 +1,3 @@
-import ast
 import asyncio
 import os
 import re
@@ -12,6 +11,8 @@ from config.themes import themes_names
 from phrases import have_schedule, no_schedule, no_schedule_mentor_text, no_schedule_text
 from utils.formatters import format_error_message
 from utils.utils import day_week_by_date
+
+from bot.services.database import ScheduleArchiveRepository, UserRepository
 
 
 class ScheduleService:
@@ -244,9 +245,8 @@ class ScheduleService:
         message_have_schedule_mentor = await container.bot.send_message(user_id, have_schedule)
 
         for date in actual_dates:
-            data = await container.db_schedule_archive.get_schedule_mentors(date, mentor_name)
-            if isinstance(data, str):
-                data = ast.literal_eval(data)
+            async for session in container.db_manager.get_session():  # type: ignore
+                data = await ScheduleArchiveRepository.get_mentor_schedule(session, date, mentor_name)
 
             if not any(data):
                 day = day_week_by_date(date)
@@ -259,8 +259,8 @@ class ScheduleService:
 
                 continue
 
-            user_theme = await container.db_users.get_user_theme(user_id)
-            user_theme = "Classic" if user_theme not in themes_names else user_theme
+            async for session in container.db_manager.get_session():  # type: ignore
+                user_theme = await UserRepository.get_user_theme(session, user_id)
 
             image_creator = ImageCreator()
             await image_creator.create_schedule_image(
@@ -331,10 +331,8 @@ class ScheduleService:
         message_have_schedule_group = await container.bot.send_message(user_id, have_schedule)
 
         for date in actual_dates:
-            data = await container.db_schedule_archive.get_schedule_students(date, user_group)
-
-            if isinstance(data, str):
-                data = ast.literal_eval(data)
+            async for session in container.db_manager.get_session():  # type: ignore
+                data = await ScheduleArchiveRepository.get_student_schedule(session, date, user_group)
 
             if not any(data):
                 day = day_week_by_date(date)
@@ -347,8 +345,8 @@ class ScheduleService:
 
                 continue
 
-            user_theme = await container.db_users.get_user_theme(user_id)
-            user_theme = "Classic" if user_theme not in themes_names else user_theme
+            async for session in container.db_manager.get_session():  # type: ignore
+                user_theme = await UserRepository.get_user_theme(session, user_id)
 
             image_creator = ImageCreator()
             await image_creator.create_schedule_image(

@@ -4,6 +4,8 @@ from aiolimiter import AsyncLimiter
 from config.bot_config import ADMIN
 from core.dependencies import container
 
+from bot.services.database import UserRepository
+
 
 class MessageSender:
     """A class for sending messages to users"""
@@ -39,7 +41,9 @@ class MessageSender:
 
     async def send_message_to_all_users(self, message: str) -> None:
         """A method for sending a message to all users"""
-        users_id = await container.db_users.get_users()
+        async for session in container.db_manager.get_session():  # type: ignore
+            users_id = await UserRepository.get_all_users(session)
+
         failed_users = []
 
         for user_id in users_id:
@@ -53,7 +57,8 @@ class MessageSender:
 
     async def send_message_to_group(self, group: str, message: str) -> None:
         """A method for sending a message to a group of users"""
-        users_id = await container.db_users.get_users_by_group(group)
+        async for session in container.db_manager.get_session():  # type: ignore
+            users_id = await UserRepository.get_users_by_group(session, group)
         failed_users = []
 
         for user_id in users_id:

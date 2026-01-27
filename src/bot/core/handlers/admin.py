@@ -1,4 +1,5 @@
 from aiogram import Dispatcher, F, Router
+from aiogram.enums import ChatType
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from aiogram.types.input_file import FSInputFile
@@ -18,6 +19,8 @@ from phrases import (
 from services.mailing_service import MessageSender
 from utils.markup import inline_markup_admin_panel_tools, inline_markup_select_group
 from utils.utils import get_memory_info
+
+from bot.services.database import UserRepository
 
 from ..filters.custom_filters import (
     BlockUserFilter,
@@ -43,7 +46,7 @@ def register(dp: Dispatcher):
     dp.include_router(router)
 
 
-@router.message(F.text == "⚙️ Админ панель")
+@router.message(F.text == "⚙️ Админ панель", F.chat.type == ChatType.PRIVATE)
 @event_handler()
 async def admin_panel_handler(ms: Message, state: FSMContext) -> None:
     await ms.answer(admin_panel_text, reply_markup=inline_markup_admin_panel_tools)
@@ -86,7 +89,7 @@ async def block_user_callback(cb: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(BlockUserFSM.block_user)
 
 
-@router.message(BlockUserFSM.block_user)
+@router.message(BlockUserFSM.block_user, F.chat.type == ChatType.PRIVATE)
 @event_handler(log_event=False, clear_state=False)
 async def block_user_enter_id(ms: Message, state: FSMContext) -> None:
     text = str(ms.text).strip()
@@ -121,7 +124,7 @@ async def send_message_user(cb: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(SendMessageUserFSM.send_message_enter_id)
 
 
-@router.message(SendMessageUserFSM.send_message_enter_id)
+@router.message(SendMessageUserFSM.send_message_enter_id, F.chat.type == ChatType.PRIVATE)
 @event_handler(log_event=False, clear_state=False)
 async def send_message_user_enter_id(ms: Message, state: FSMContext) -> None:
     text = str(ms.text).strip()
@@ -137,7 +140,7 @@ async def send_message_user_enter_id(ms: Message, state: FSMContext) -> None:
     await state.set_state(SendMessageUserFSM.send_message_enter_message)
 
 
-@router.message(SendMessageUserFSM.send_message_enter_message)
+@router.message(SendMessageUserFSM.send_message_enter_message, F.chat.type == ChatType.PRIVATE)
 @event_handler(log_event=False, clear_state=False)
 async def send_message_user_enter_message(ms: Message, state: FSMContext) -> None:
     text = str(ms.text).strip()
@@ -164,7 +167,7 @@ async def send_message_users(cb: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(SendMessageUsersFSM.send_message_enter_message)
 
 
-@router.message(SendMessageUsersFSM.send_message_enter_message)
+@router.message(SendMessageUsersFSM.send_message_enter_message, F.chat.type == ChatType.PRIVATE)
 @event_handler(log_event=False, clear_state=False)
 async def send_message_users_enter_message(ms: Message, state: FSMContext) -> None:
     text = str(ms.text).strip()
@@ -198,7 +201,8 @@ async def send_message_group_select_group(cb: CallbackQuery, state: FSMContext) 
     if not isinstance(group, str):
         return
 
-    users_id = await container.db_users.get_users_by_group(group)
+    async for session in container.db_manager.get_session():  # type: ignore
+        users_id = await UserRepository.get_users_by_group(session, group)
 
     if not users_id:
         await container.bot.send_message(ADMIN, f"❌ Нет пользователей с группы {group}")
@@ -210,7 +214,7 @@ async def send_message_group_select_group(cb: CallbackQuery, state: FSMContext) 
     await state.set_state(SendMessageGroupFSM.send_message_enter_message)
 
 
-@router.message(SendMessageGroupFSM.send_message_enter_message)
+@router.message(SendMessageGroupFSM.send_message_enter_message, F.chat.type == ChatType.PRIVATE)
 @event_handler(log_event=False, clear_state=False)
 async def send_message_group_enter_message(ms: Message, state: FSMContext) -> None:
     text = str(ms.text).strip()

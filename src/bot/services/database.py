@@ -1,531 +1,647 @@
-import asyncio
-import sqlite3 as sql3
+import ast
+import json
+from datetime import date as date_type
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-import aiosqlite
 from config.bot_config import SECRET_KEY
+from config.paths import PATH_DBs
 from cryptography.fernet import Fernet
+from sqlalchemy import and_, delete, func, or_, update
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.future import select
+
+from .models import Base, Chat, ScheduleArchiveMentor, ScheduleArchiveStudent, ScheduleHash, User
+
+cipher = Fernet(SECRET_KEY)
 
 
-class DatabaseUsers:
-    """A class for working with user data"""
+class DatabaseManager:
+    """Основной класс для работы с базой данных через SQLAlchemy"""
 
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-        self.lock = asyncio.Lock()
+    def __init__(self, db_url: str = f"sqlite+aiosqlite:///{PATH_DBs}bot_database.db"):
+        self.engine = create_async_engine(db_url, echo=False, future=True)
+        self.async_session = async_sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
 
-    async def __aenter__(self):
-        self.db = await aiosqlite.connect(self.db_path)
-        self.db.row_factory = aiosqlite.Row
-        return self
+    async def init_db(self):
+        """Инициализация базы данных (создание таблиц)"""
+        async with self.engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("✅ База данных инициализирована")
 
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        if self.db:
-            await self.db.close()
+    async def get_session(self) -> AsyncSession:  # type: ignore
+        """Получение сессии для работы с БД"""
+        async with self.async_session() as session:
+            try:
+                yield session  # type: ignore
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+            finally:
+                await session.close()
 
-    @classmethod
-    async def create(cls, db_path: str) -> "DatabaseUsers":
-        self = cls(db_path)
-        self.db = await aiosqlite.connect(db_path)
-        self.db.row_factory = aiosqlite.Row
-        return self
 
-    async def create_table(self) -> None:
-        """A method for creating a table"""
-        fields_table = """
-        id INTEGER PRIMARY KEY,
-        user_id INTEGER,
+class UserRepository:
+    """Репозиторий для работы с пользователями"""
 
-        user_status TEXT,
-        mentor_name TEXT DEFAULT None,
-        student_group TEXT DEFAULT None,
+    @staticmethod
+    async def create_or_update_user(
+        session: AsyncSession,
+        user_id: int,
+        user_status: str,
+        mentor_name: Optional[str] = None,
+        student_group: Optional[str] = None,
+    ) -> User:
+        """Создание или обновление пользователя"""
+        try:
+            # Проверяем существование пользователя
+            result = await session.execute(select(User).where(User.user_id == user_id))
+            user = result.scalar_one_or_none()
 
-        user_theme TEXT DEFAULT Classic,
+            if user:
+                # Обновляем существующего пользователя
+                user.user_status = user_status  # type: ignore
+                user.mentor_name = mentor_name if mentor_name else None  # type: ignore
+                user.student_group = student_group if student_group else None  # type: ignore
+                print(f"👤 Пользователь обновлен 🔄 | {user_id}")
+            else:
+                # Создаем нового пользователя
+                user = User(
+                    user_id=user_id, user_status=user_status, mentor_name=mentor_name, student_group=student_group
+                )
+                session.add(user)
+                print(f"👤 Пользователь добавлен 🆕 | {user_id} - {student_group or mentor_name}")
 
-        ejournal_name TEXT DEFAULT None,
-        ejournal_password TEXT DEFAULT None,
+            await session.commit()
+            return user
 
-        toggle_schedule BOOL DEFAULT False,
-        all_semesters BOOL DEFAULT False
-        """
+        except SQLAlchemyError as e:
+            await session.rollback()
+            print(f"❌ Ошибка при работе с пользователем: {e}")
+            raise
 
-        async with self.lock:
-            async with self.db.execute(f"""CREATE TABLE IF NOT EXISTS Users ({fields_table})"""):
-                await self.db.commit()
+    @staticmethod
+    async def get_user_by_id(session: AsyncSession, user_id: int) -> Optional[User]:
+        """Получение пользователя по ID"""
+        result = await session.execute(select(User).where(User.user_id == user_id))
+        return result.scalar_one_or_none()
 
-    async def check_user_in_db(self, user_id: int) -> bool:
-        """A method for verifying the presence of a user in the database"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT user_id FROM Users WHERE user_id == ?""",
-                (user_id,),
-            ) as cursor:
-                user_in = await cursor.fetchone()
+    @staticmethod
+    async def user_exists(session: AsyncSession, user_id: int) -> bool:
+        """Проверка существования пользователя"""
+        result = await session.execute(select(func.count()).select_from(User).where(User.user_id == user_id))
+        return result.scalar() > 0  # type: ignore
 
-        return bool(user_in)
+    @staticmethod
+    async def get_user_status(session: AsyncSession, user_id: int) -> str:
+        """Получение статуса пользователя"""
+        result = await session.execute(select(User.user_status).where(User.user_id == user_id))
+        status = result.scalar_one_or_none()
+        return status or ""
 
-    async def get_user_status(self, user_id: int):
-        """Method for getting user status [student, mentor]"""
-        async with self.lock:
-            async with self.db.execute(f"""SELECT user_status FROM Users WHERE user_id == ?""", (user_id,)) as cursor:
-                row = await cursor.fetchone()
-                status = row[0] if row else ""
+    @staticmethod
+    async def get_all_users(session: AsyncSession) -> List[int]:
+        """Получение всех ID пользователей"""
+        result = await session.execute(select(User.user_id))
+        return [row[0] for row in result.all()]
 
-        return status
+    @staticmethod
+    async def get_all_groups(session: AsyncSession) -> List[str]:
+        """Получение всех групп студентов"""
+        result = await session.execute(select(User.student_group).where(User.user_status == "student").distinct())
+        groups = [row[0] for row in result.all() if row[0]]
+        return list(set(groups))
 
-    async def get_users(self) -> list[int]:
-        """A method for getting the IDs of all users in the database"""
-        async with self.lock:
-            async with self.db.execute(f"""SELECT user_id FROM Users""") as cursor:
-                data = await cursor.fetchall()
-                users_ids = [user_id[0] for user_id in data]
+    @staticmethod
+    async def get_users_by_group(session: AsyncSession, group: str, toggle_schedule: bool = False) -> List[int]:
+        """Получение пользователей по группе"""
+        result = await session.execute(
+            select(User.user_id).where(
+                and_(
+                    User.user_status == "student", User.student_group == group, User.toggle_schedule == toggle_schedule
+                )
+            )
+        )
+        return [row[0] for row in result.all()]
 
-        return users_ids
+    @staticmethod
+    async def get_users_by_group_and_theme(
+        session: AsyncSession, group: str, theme: str = "Classic", toggle_schedule: bool = False
+    ) -> List[int]:
+        """Получение пользователей по группе и теме"""
+        result = await session.execute(
+            select(User.user_id).where(
+                and_(User.student_group == group, User.user_theme == theme, User.toggle_schedule == toggle_schedule)
+            )
+        )
+        return [row[0] for row in result.all()]
 
-    async def get_groups(self) -> list[str]:
-        """Method for getting all the groups in the database"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT student_group FROM Users WHERE user_status = ?""", ("student",)
-            ) as cursor:
-                row = await cursor.fetchall()
-                groups = set()
+    @staticmethod
+    async def get_user_group(session: AsyncSession, user_id: int) -> str:
+        """Получение группы пользователя"""
+        result = await session.execute(select(User.student_group).where(User.user_id == user_id))
+        group = result.scalar_one_or_none()
+        return group or ""
 
-                [groups.add(group[0]) for group in row]
+    @staticmethod
+    async def get_user_theme(session: AsyncSession, user_id: int) -> str:
+        """Получение темы пользователя"""
+        result = await session.execute(select(User.user_theme).where(User.user_id == user_id))
+        theme = result.scalar_one_or_none()
+        return theme or "Classic"
 
-        return list(groups)
+    @staticmethod
+    async def get_user_settings(session: AsyncSession, user_id: int) -> Dict[str, bool]:
+        """Получение настроек пользователя"""
+        result = await session.execute(select(User.toggle_schedule, User.all_semesters).where(User.user_id == user_id))
+        settings = result.first()
 
-    async def get_users_by_group(self, group: str) -> list[int]:
-        """Method for getting users from a group"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT user_id FROM Users WHERE user_status == ? AND student_group == ? AND toggle_schedule == ? """,
-                ("student", group, 0),
-            ) as cursor:
-                row = await cursor.fetchall()
-                users_ids = [user_id[0] for user_id in row]
-
-        return users_ids
-
-    async def get_users_by_theme(self, group: str, theme: str = "Classic") -> list[int]:
-        """A method for getting users from a group by theme"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT user_id FROM Users WHERE student_group == ? AND user_theme == ? AND toggle_schedule == ? """,
-                (group, theme, 0),
-            ) as cursor:
-                data = await cursor.fetchall()
-                users_ids = [user_id[0] for user_id in data]
-
-        return users_ids
-
-    async def get_user_group(self, user_id: int) -> str:
-        """Method for getting the user's group"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT student_group FROM Users WHERE user_id == ?""",
-                (user_id,),
-            ) as cursor:
-                row = await cursor.fetchone()
-                student_group = row[0] if row else ""
-
-        return student_group
-
-    async def get_user_theme(self, user_id: int) -> str:
-        """The method for getting the user's theme"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT user_theme FROM Users WHERE user_id == ?""",
-                (user_id,),
-            ) as cursor:
-                row = await cursor.fetchone()
-                user_theme = row[0] if row else "Classic"
-
-        return user_theme
-
-    async def get_user_settigs(self, user_id: int) -> dict[str, bool]:
-        """Method for getting user settings"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT COALESCE(toggle_schedule, 0), COALESCE(all_semesters, 0) FROM Users WHERE user_id == ? """,
-                (user_id,),
-            ) as cursor:
-                data = await cursor.fetchone()
-
-        if not data:
+        if not settings:
             return {"toggle_schedule": False, "all_semesters": False}
 
-        toggle_schedule = bool(int(data[0]))
-        all_semesters = bool(int(data[1]))
+        return {"toggle_schedule": settings[0] or False, "all_semesters": settings[1] or False}
 
-        return {"toggle_schedule": toggle_schedule, "all_semesters": all_semesters}
+    @staticmethod
+    async def get_user_ejournal_info(session: AsyncSession, user_id: int) -> List[str]:
+        """Получение данных для электронного журнала"""
+        result = await session.execute(
+            select(User.ejournal_name, User.ejournal_password).where(User.user_id == user_id)
+        )
+        row = result.first()
 
-    async def get_user_ejournal_info(self, user_id: int) -> list[str] | list:
-        """A method for obtaining user's personal data for logging into an electronic journal"""
-        async with self.lock:
-            async with self.db.execute(
-                "SELECT ejournal_name, ejournal_password FROM Users WHERE user_id = ? LIMIT 1",
-                (user_id,),
-            ) as cursor:
-                row = await cursor.fetchone()
-
-        if not row:
+        if not row or not row[0] or not row[1]:
             return []
 
-        fio = row["ejournal_name"]
-        pwd = row["ejournal_password"]
+        try:
+            decrypted_fio = cipher.decrypt(row[0].encode()).decode()
+            decrypted_pwd = cipher.decrypt(row[1].encode()).decode()
 
-        if fio == "None" and pwd == "None":
+            if decrypted_fio == "None" or decrypted_pwd == "None":
+                return []
+
+            return [decrypted_fio, decrypted_pwd]
+        except Exception:
             return []
 
-        decrypted_fio = cipher.decrypt(fio).decode()
-        decrypted_pwd = cipher.decrypt(pwd).decode()
+    @staticmethod
+    async def get_all_mentors(session: AsyncSession, toggle_schedule: bool = False) -> List[List[Any]]:
+        """Получение всех преподавателей"""
+        result = await session.execute(
+            select(User.user_id, User.mentor_name).where(
+                and_(User.user_status == "mentor", User.toggle_schedule == toggle_schedule)
+            )
+        )
 
-        if decrypted_fio == "None" or decrypted_pwd == "None":
-            return []
-
-        ejouranl_info = [decrypted_fio, decrypted_pwd]
-        return ejouranl_info
-
-    async def get_mentors(self) -> list:
-        """Method for getting mentors ids"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT user_id, mentor_name FROM Users WHERE user_status == ? AND toggle_schedule == ? """,
-                ("mentor", 0),
-            ) as cursor:
-                data = await cursor.fetchall()
-
-                mentors = []
-                for mentor in data:
-                    mentor_id = mentor[0]
-                    mentor_name = mentor[1]
-                    mentors.append([mentor_id, mentor_name])
+        mentors = []
+        for mentor_id, mentor_name in result.all():
+            if mentor_id and mentor_name:
+                mentors.append([mentor_id, mentor_name])
 
         return mentors
 
-    async def get_mentor_name_by_id(self, user_id: int) -> str | None:
-        """Method for getting mentors ids"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT mentor_name FROM Users WHERE user_id == ? AND user_status == ? AND toggle_schedule == ? """,
-                (user_id, "mentor", 0),
-            ) as cursor:
-                data = await cursor.fetchone()
-                mentor_name = data[0] if data else None
-
-        return mentor_name
-
-    async def change_user_settings(self, setting: str, setting_status: bool, user_id: int) -> None:
-        """A method for changing user settings"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""UPDATE Users SET "{setting}" = ? WHERE user_id = ? """,
-                (setting_status, user_id),
-            ):
-                await self.db.commit()
-
-    async def change_user_theme(self, user_id: int, theme: str) -> None:
-        """A method for changing the user's theme"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""UPDATE Users SET user_theme = ? WHERE user_id = ? """,
-                (theme, user_id),
-            ):
-                await self.db.commit()
-
-    async def add_user_ejournal_info(self, user_id: int, info: list) -> None:
-        """A method for adding personal data to the user's electronic journal"""
-        fio, pwd = info[0], info[1]
-
-        encrypted_fio = cipher.encrypt(fio.encode())
-        encrypted_password = cipher.encrypt(pwd.encode())
-
-        async with self.lock:
-            async with self.db.execute(
-                f"""UPDATE Users SET ejournal_name = ?, ejournal_password = ? WHERE user_id = ? """,
-                (encrypted_fio, encrypted_password, user_id),
-            ):
-                await self.db.commit()
-
-    async def add_user(
-        self,
-        user_id: int,
-        user_status: str,
-        mentor_name: str = "None",
-        student_group: str = "None",
-    ) -> None:
-        """Method for adding a user to the database"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""INSERT INTO Users (user_id, user_status, mentor_name, student_group) VALUES(?, ?, ?, ?)""",
-                (user_id, user_status, mentor_name, student_group),
-            ):
-                await self.db.commit()
-
-            print(f"👤 Пользователь | {user_id} - {student_group} | добавлен 🆕")
-
-    async def update_student(self, user_id: int, user_group: str):
-        """Method for changing the student's info"""
-        async with self.lock:
-            async with self.db.execute(
-                """UPDATE Users SET user_status = ?, student_group = ?, mentor_name = ? WHERE user_id = ? """,
-                ("student", user_group, "None", user_id),
-            ):
-                await self.db.commit()
-
-        # print(f"👤 Пользователь перезаписан 🔄 | {user_id} - {user_group} | ℹ️")
-
-    async def update_mentor(self, user_id: int, mentor_name: str):
-        """Method for changing the mentor's info"""
-        async with self.lock:
-            async with self.db.execute(
-                """UPDATE Users SET user_status = ?, student_group = ?, mentor_name = ? WHERE user_id = ? """,
-                ("mentor", "None", mentor_name, user_id),
-            ):
-                await self.db.commit()
-
-        # print(f"👤 Пользователь перезаписан 🔄 | {user_id} - {mentor_name} | ℹ️")
-
-    async def delete_user_ejournal_info(self, user_id: int) -> None:
-        """A method for deleting a user's personal data to log in to an electronic journal"""
-        async with self.lock:
-            async with self.db.execute(
-                f"""UPDATE Users SET ejournal_name = ?, ejournal_password = ? WHERE user_id = ? """,
-                (
-                    "None",
-                    "None",
-                    user_id,
-                ),
-            ):
-                await self.db.commit()
-
-    async def delete_user(self, user_id: int) -> None:
-        """A method for deleting a user from the database"""
-        async with self.lock:
-            async with self.db.execute(f"""DELETE FROM Users WHERE user_id == ? """, (user_id,)):
-                await self.db.commit()
-
-
-class DatabaseHashes:
-    """A class for working with schedule hashes"""
-
-    def __init__(self, name_db: str) -> None:
-        """Initializing necessary dependencies"""
-        self.conn = sql3.connect(name_db, check_same_thread=False)
-        self.cur = self.conn.cursor()
-
-    def create_table(self, name_table: str) -> None:
-        """A method for creating a table"""
-        self.cur.execute(
-            f"""
-        CREATE TABLE IF NOT EXISTS "{name_table}" (
-            id INTEGER PRIMARY KEY,
-            group_name TEXT NOT NULL,
-            date DATE NOT NULL,
-            hash_value TEXT NOT NULL
-        )
-        """
-        )
-        self.conn.commit()
-
-    def add_hash(self, group_name: str, date: str, hash_value: str) -> bool:
-        """A method for adding a schedule hash to the database"""
-        self.cur.execute(
-            "SELECT hash_value FROM schedule_hashes WHERE group_name = ? AND date = ?",
-            (group_name, date),
-        )
-        result = self.cur.fetchone()
-
-        if result is None:
-            self.cur.execute(
-                """
-                INSERT INTO schedule_hashes (group_name, date, hash_value)
-                VALUES (?, ?, ?)
-                """,
-                (group_name, date, hash_value),
+    @staticmethod
+    async def get_mentor_name_by_id(
+        session: AsyncSession, user_id: int, toggle_schedule: bool = False
+    ) -> Optional[str]:
+        """Получение имени преподавателя по ID"""
+        result = await session.execute(
+            select(User.mentor_name).where(
+                and_(User.user_id == user_id, User.user_status == "mentor", User.toggle_schedule == toggle_schedule)
             )
-            self.conn.commit()
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def update_user_setting(session: AsyncSession, user_id: int, setting: str, value: Any) -> None:
+        """Обновление настройки пользователя"""
+        await session.execute(update(User).where(User.user_id == user_id).values({setting: value}))
+        await session.commit()
+
+    @staticmethod
+    async def update_user_theme(session: AsyncSession, user_id: int, theme: str) -> None:
+        """Обновление темы пользователя"""
+        await session.execute(update(User).where(User.user_id == user_id).values(user_theme=theme))
+        await session.commit()
+
+    @staticmethod
+    async def update_ejournal_info(session: AsyncSession, user_id: int, fio: str, password: str) -> None:
+        """Обновление данных электронного журнала"""
+        encrypted_fio = cipher.encrypt(fio.encode())
+        encrypted_password = cipher.encrypt(password.encode())
+
+        await session.execute(
+            update(User)
+            .where(User.user_id == user_id)
+            .values(ejournal_name=encrypted_fio.decode(), ejournal_password=encrypted_password.decode())
+        )
+        await session.commit()
+
+    @staticmethod
+    async def delete_ejournal_info(session: AsyncSession, user_id: int) -> None:
+        """Удаление данных электронного журнала"""
+        await session.execute(
+            update(User).where(User.user_id == user_id).values(ejournal_name=None, ejournal_password=None)
+        )
+        await session.commit()
+
+    @staticmethod
+    async def delete_user(session: AsyncSession, user_id: int) -> None:
+        """Удаление пользователя"""
+        await session.execute(delete(User).where(User.user_id == user_id))
+        await session.commit()
+        print(f"👤 Пользователь удален 🗑️ | {user_id}")
+
+
+class ChatRepository:
+    """Репозиторий для работы с чатами (группами/супергруппами/каналами)"""
+
+    @staticmethod
+    async def create_or_update_chat(
+        session: AsyncSession,
+        chat_id: int,
+        chat_type: str = "group",
+    ) -> Chat:
+        """Создание или обновление информации о чате"""
+        try:
+            result = await session.execute(select(Chat).where(Chat.chat_id == chat_id))
+            chat = result.scalar_one_or_none()
+
+            if chat:
+                chat.chat_type = chat_type  # type: ignore
+                print(f"💬 Чат обновлен 🔄 | ID: {chat_id}")
+            else:
+                chat = Chat(
+                    chat_id=chat_id,
+                    chat_type=chat_type,
+                )
+                session.add(chat)
+                print(f"💬 Чат добавлен 🆕 | ID: {chat_id}")
+
+            await session.commit()
+            return chat
+
+        except SQLAlchemyError as e:
+            await session.rollback()
+            print(f"❌ Ошибка при работе с чатом: {e}")
+            raise
+
+    @staticmethod
+    async def get_chat_by_id(session: AsyncSession, chat_id: int) -> Optional[Chat]:
+        """Получение чата по ID"""
+        result = await session.execute(select(Chat).where(Chat.chat_id == chat_id))
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def chat_exists(session: AsyncSession, chat_id: int) -> bool:
+        """Проверка существования чата"""
+        result = await session.execute(select(func.count()).select_from(Chat).where(Chat.chat_id == chat_id))
+        return result.scalar() > 0  # type: ignore
+
+    @staticmethod
+    async def subscribe_to_group(session: AsyncSession, chat_id: int, group_name: str) -> bool:
+        """Подписка чата на группу студентов"""
+        try:
+            result = await session.execute(select(Chat).where(Chat.chat_id == chat_id))
+            chat = result.scalar_one_or_none()
+
+            if not chat:
+                return False
+
+            chat.subscribed_to_group = group_name  # type: ignore
+
+            await session.commit()
+            print(f"💬 Чат {chat_id} подписан на группу: {group_name}")
             return True
 
-        return False
-
-    def change_hash(self, group_name: str, date: str, hash_value: str) -> None:
-        """A method for changing the hash"""
-        self.cur.execute(
-            """
-            UPDATE schedule_hashes
-            SET hash_value = ?
-            WHERE group_name = ? AND date = ?
-            """,
-            (hash_value, group_name, date),
-        )
-        self.conn.commit()
-
-    def check_hash_change(self, group_name: str, date: str, hash_value: str) -> bool | None:
-        """A method for checking the location of the schedule hash in the database"""
-        self.cur.execute(
-            "SELECT hash_value FROM schedule_hashes WHERE group_name = ? AND date = ?",
-            (group_name, date),
-        )
-        result = self.cur.fetchone()
-
-        if result is None:
-            self.add_hash(group_name, date, hash_value)
+        except SQLAlchemyError as e:
+            await session.rollback()
+            print(f"❌ Ошибка при подписке чата на группу: {e}")
             return False
 
-        if result[0] != hash_value:
+    @staticmethod
+    async def subscribe_to_mentor(session: AsyncSession, chat_id: int, mentor_name: str) -> bool:
+        """Подписка чата на преподавателя"""
+        try:
+            result = await session.execute(select(Chat).where(Chat.chat_id == chat_id))
+            chat = result.scalar_one_or_none()
+
+            if not chat:
+                return False
+
+            chat.subscribed_to_mentor = mentor_name  # type: ignore
+
+            await session.commit()
+            print(f"💬 Чат {chat_id} подписан на преподавателя: {mentor_name}")
+            return True
+
+        except SQLAlchemyError as e:
+            await session.rollback()
+            print(f"❌ Ошибка при подписке чата на преподавателя: {e}")
+            return False
+
+    @staticmethod
+    async def unsubscribe(session: AsyncSession, chat_id: int) -> bool:
+        """Отписка чата от всех подписок"""
+        try:
+            result = await session.execute(select(Chat).where(Chat.chat_id == chat_id))
+            chat = result.scalar_one_or_none()
+
+            if not chat:
+                return False
+
+            chat.subscribed_to_group = None  # type: ignore
+            chat.subscribed_to_mentor = None  # type: ignore
+
+            await session.commit()
+            print(f"💬 Чат {chat_id} отписан от всех подписок")
+            return True
+
+        except SQLAlchemyError as e:
+            await session.rollback()
+            print(f"❌ Ошибка при отписке чата: {e}")
+            return False
+
+    @staticmethod
+    async def update_chat_settings(
+        session: AsyncSession,
+        chat_id: int,
+        send_daily: Optional[bool] = None,
+        send_changes: Optional[bool] = None,
+        theme: Optional[str] = None,
+    ) -> bool:
+        """Обновление настроек чата"""
+        try:
+            update_data = {}
+            if send_daily is not None:
+                update_data["send_daily"] = send_daily
+            if send_changes is not None:
+                update_data["send_changes"] = send_changes
+            if theme is not None:
+                update_data["theme"] = theme
+
+            if not update_data:
+                return False
+
+            await session.execute(update(Chat).where(Chat.chat_id == chat_id).values(**update_data))
+            await session.commit()
+            print(f"💬 Настройки чата {chat_id} обновлены: {update_data}")
+            return True
+
+        except SQLAlchemyError as e:
+            await session.rollback()
+            print(f"❌ Ошибка при обновлении настроек чата: {e}")
+            return False
+
+    @staticmethod
+    async def get_chats_subscribed_to_group(
+        session: AsyncSession, group_name: str, only_active: bool = True
+    ) -> List[Chat]:
+        """Получение всех чатов, подписанных на группу"""
+        conditions = [Chat.subscribed_to_group == group_name]
+
+        if only_active:
+            conditions.append(Chat.send_daily == True)
+
+        result = await session.execute(select(Chat).where(and_(*conditions)))
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def get_chats_subscribed_to_mentor(
+        session: AsyncSession, mentor_name: str, only_active: bool = True
+    ) -> List[Chat]:
+        """Получение всех чатов, подписанных на преподавателя"""
+        conditions = [Chat.subscribed_to_mentor == mentor_name]
+
+        if only_active:
+            conditions.append(Chat.send_daily == True)
+
+        result = await session.execute(select(Chat).where(and_(*conditions)))
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def get_all_subscribed_chats(session: AsyncSession) -> List[Chat]:
+        """Получение всех чатов с активными подписками"""
+        result = await session.execute(
+            select(Chat).where(or_(Chat.subscribed_to_group.is_not(None), Chat.subscribed_to_mentor.is_not(None)))
+        )
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def get_chats_for_daily_schedule(session: AsyncSession) -> List[Chat]:
+        """Получение чатов для ежедневной рассылки"""
+        result = await session.execute(
+            select(Chat).where(
+                and_(
+                    Chat.send_daily == True,
+                    or_(Chat.subscribed_to_group.is_not(None), Chat.subscribed_to_mentor.is_not(None)),
+                )
+            )
+        )
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def get_all_chats_with_subscriptions(session: AsyncSession) -> List[Dict[str, Any]]:
+        result = await session.execute(select(Chat))
+        chats = result.scalars().all()
+
+        chats_info = []
+        for chat in chats:
+            chats_info.append(
+                {
+                    "chat_id": chat.chat_id,
+                    "subscribed_to_group": chat.subscribed_to_group,
+                    "subscribed_to_mentor": chat.subscribed_to_mentor,
+                    "send_daily": chat.send_daily,
+                }
+            )
+
+        return chats_info
+
+    @staticmethod
+    async def get_chats_for_changes_schedule(session: AsyncSession) -> List[Chat]:
+        """Получение чатов для рассылки изменений"""
+        result = await session.execute(
+            select(Chat).where(
+                and_(
+                    Chat.send_changes == True,
+                    or_(Chat.subscribed_to_group.is_not(None), Chat.subscribed_to_mentor.is_not(None)),
+                )
+            )
+        )
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def delete_chat(session: AsyncSession, chat_id: int) -> bool:
+        """Удаление чата из базы данных"""
+        try:
+            result = await session.execute(delete(Chat).where(Chat.chat_id == chat_id))
+            await session.commit()
+
+            if result.rowcount > 0:  # type: ignore
+                print(f"💬 Чат удален 🗑️ | ID: {chat_id}")
+                return True
+            return False
+
+        except SQLAlchemyError as e:
+            await session.rollback()
+            print(f"❌ Ошибка при удалении чата: {e}")
+            return False
+
+    @staticmethod
+    async def get_chat_subscription_info(session: AsyncSession, chat_id: int) -> Dict[str, Any]:
+        """Получение информации о подписке чата"""
+        result = await session.execute(select(Chat).where(Chat.chat_id == chat_id))
+        chat = result.scalar_one_or_none()
+
+        if not chat:
+            return {"exists": False}
+
+        return {
+            "exists": True,
+            "chat_id": chat.chat_id,
+            "chat_type": chat.chat_type,
+            "subscribed_to_group": chat.subscribed_to_group,
+            "subscribed_to_mentor": chat.subscribed_to_mentor,
+            "send_daily": chat.send_daily,
+            "send_changes": chat.send_changes,
+            "theme": chat.theme,
+            "created_at": chat.created_at,
+        }
+
+
+class ScheduleHashRepository:
+    """Репозиторий для работы с хэшами расписаний"""
+
+    @staticmethod
+    async def check_and_update_hash(session: AsyncSession, group_name: str, date: date_type, hash_value: str) -> bool:
+        """
+        Проверяет и обновляет хэш.
+        Возвращает True если хэш изменился, False если не изменился
+        """
+        # Ищем существующий хэш
+        result = await session.execute(
+            select(ScheduleHash).where(and_(ScheduleHash.group_name == group_name, ScheduleHash.date == date))
+        )
+        existing_hash = result.scalar_one_or_none()
+
+        if not existing_hash:
+            # Хэша нет, добавляем новый
+            new_hash = ScheduleHash(group_name=group_name, date=date, hash_value=hash_value)
+            session.add(new_hash)
+            await session.commit()
+            return False
+
+        if existing_hash.hash_value != hash_value:  # type: ignore
+            # Хэш изменился, обновляем
+            existing_hash.hash_value = hash_value  # type: ignore
+            await session.commit()
             return True
 
         return False
 
-    def cleanup_old_hashes(self) -> None:
-        """A method for deleting old schedule hashes"""
-        now = datetime.now()
-        year = now.day
-        month = now.month
-        day = now.year
-        date = f"{day}.{month}.{year}"
-
-        self.cur.execute("DELETE FROM schedule_hashes WHERE date < ?", (date,))
-        self.conn.commit()
-        print("#️⃣  Старые записи хешей удалены. 🗑️")
+    @staticmethod
+    async def cleanup_old_hashes(session: AsyncSession) -> None:
+        """Удаление старых хэшей"""
+        today = datetime.now().date()
+        await session.execute(delete(ScheduleHash).where(ScheduleHash.date < today))
+        await session.commit()
+        print("#️⃣  Старые записи хэшей удалены 🗑️")
 
 
-class DatabaseScheduleArchive:
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-        self.lock = asyncio.Lock()
+class ScheduleArchiveRepository:
+    """Репозиторий для работы с архивом расписаний"""
 
-    async def __aenter__(self):
-        self.db = await aiosqlite.connect(self.db_path)
-        self.db.row_factory = aiosqlite.Row
-        return self
+    @staticmethod
+    async def get_student_schedule(session: AsyncSession, date: str, group_name: str) -> List[Any]:
+        """Получение расписания студентов"""
+        result = await session.execute(
+            select(ScheduleArchiveStudent.schedule).where(
+                and_(ScheduleArchiveStudent.date == date, ScheduleArchiveStudent.group_name == group_name)
+            )
+        )
+        row = result.scalar_one_or_none()
 
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        if self.db:
-            await self.db.close()
-
-    @classmethod
-    async def create(cls, db_path: str) -> "DatabaseScheduleArchive":
-        self = cls(db_path)
-        self.db = await aiosqlite.connect(db_path)
-        self.db.row_factory = aiosqlite.Row
-        return self
-
-    async def create_tables(self) -> None:
-        fields_table_students = """
-        id INTEGER PRIMARY KEY,
-        date INTEGER,
-        group_name TEXT,
-        schedule TEXT,
-        schedule_hash TEXT
-        """
-
-        fields_table_mentors = """
-        id INTEGER PRIMARY KEY,
-        date INTEGER,
-        mentor_name TEXT,
-        schedule TEXT,
-        schedule_hash TEXT
-        """
-
-        async with self.lock:
-            async with self.db.execute(
-                f"""CREATE TABLE IF NOT EXISTS schedule_archive_students ({fields_table_students})"""
-            ):
-                await self.db.commit()
-
-            async with self.db.execute(
-                f"""CREATE TABLE IF NOT EXISTS schedule_archive_mentors ({fields_table_mentors})"""
-            ):
-                await self.db.commit()
-
-    async def get_schedule_students(self, date: str, group_name: str):
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT schedule FROM schedule_archive_students WHERE date = ? AND group_name = ?""",
-                (date, group_name),
-            ) as cursor:
-                rows = await cursor.fetchone()
-                if rows:
-                    return rows[0]
-
+        if row:
+            try:
+                return ast.literal_eval(row)
+            except json.JSONDecodeError:
                 return []
+        return []
 
-    async def get_schedule_mentors(self, date: str, mentor_name: str):
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT schedule FROM schedule_archive_mentors WHERE date = ? AND mentor_name = ?""",
-                (date, mentor_name),
-            ) as cursor:
-                rows = await cursor.fetchone()
-                if rows:
-                    return rows[0]
+    @staticmethod
+    async def get_mentor_schedule(session: AsyncSession, date: str, mentor_name: str) -> List[Any]:
+        """Получение расписания преподавателей"""
+        result = await session.execute(
+            select(ScheduleArchiveMentor.schedule).where(
+                and_(ScheduleArchiveMentor.date == date, ScheduleArchiveMentor.mentor_name == mentor_name)
+            )
+        )
+        row = result.scalar_one_or_none()
 
+        if row:
+            try:
+                return ast.literal_eval(row)
+            except json.JSONDecodeError:
                 return []
+        return []
 
-    async def students_schedule_in(self, date: str, group_name: str) -> bool:
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT * FROM schedule_archive_students WHERE date = ? AND group_name = ?""",
-                (date, group_name),
-            ) as cursor:
-                row = await cursor.fetchall()
-                return bool(row)
+    @staticmethod
+    async def update_student_schedule(
+        session: AsyncSession, date: str, group_name: str, schedule: List[Any], schedule_hash: str
+    ) -> None:
+        """Обновление расписания студентов"""
+        # Проверяем существование записи
+        result = await session.execute(
+            select(ScheduleArchiveStudent).where(
+                and_(ScheduleArchiveStudent.date == date, ScheduleArchiveStudent.group_name == group_name)
+            )
+        )
+        existing = result.scalar_one_or_none()
 
-    async def mentors_schedule_in(self, date: str, mentor_name: str) -> bool:
-        async with self.lock:
-            async with self.db.execute(
-                f"""SELECT * FROM schedule_archive_mentors WHERE date = ? AND mentor_name = ?""",
-                (date, mentor_name),
-            ) as cursor:
-                row = await cursor.fetchall()
-                return bool(row)
+        schedule_str = str(schedule)
 
-    async def students_insert_data(self, date: str, group_name: str, schedule: list, schedule_hash: str):
-        async with self.lock:
-            async with self.db.execute(
-                f"""INSERT INTO schedule_archive_students (date, group_name, schedule, schedule_hash) VALUES(?, ?, ?, ?)""",
-                (date, group_name, str(schedule), schedule_hash),
-            ):
-                await self.db.commit()
-
-    async def mentors_insert_data(self, date: str, mentor_name: str, schedule: list, schedule_hash: str):
-        async with self.lock:
-            async with self.db.execute(
-                f"""INSERT INTO schedule_archive_mentors (date, mentor_name, schedule, schedule_hash) VALUES(?, ?, ?, ?)""",
-                (date, mentor_name, str(schedule), schedule_hash),
-            ):
-                await self.db.commit()
-
-    async def students_update_data(self, date: str, group_name: str, schedule: list, schedule_hash: str):
-        async with self.lock:
-            async with self.db.execute(
-                f"""UPDATE schedule_archive_students SET schedule = ?, schedule_hash = ? WHERE date = ? AND group_name = ?""",
-                (str(schedule), schedule_hash, date, group_name),
-            ):
-                await self.db.commit()
-
-    async def mentors_update_data(self, date: str, mentor_name: str, schedule: list, schedule_hash: str):
-        async with self.lock:
-            async with self.db.execute(
-                f"""UPDATE schedule_archive_mentors SET schedule = ?, schedule_hash = ? WHERE date = ? AND mentor_name = ?""",
-                (str(schedule), schedule_hash, date, mentor_name),
-            ):
-                await self.db.commit()
-
-    async def students_update_archive(self, date: str, group_name: str, schedule: list, schedule_hash: str) -> None:
-        if await self.students_schedule_in(date, group_name):
-            await self.students_update_data(date, group_name, schedule, schedule_hash)
+        if existing:
+            # Обновляем существующую запись
+            existing.schedule = schedule_str  # type: ignore
+            existing.schedule_hash = schedule_hash  # type: ignore
         else:
-            await self.students_insert_data(date, group_name, schedule, schedule_hash)
+            # Создаем новую запись
+            new_record = ScheduleArchiveStudent(
+                date=date, group_name=group_name, schedule=schedule_str, schedule_hash=schedule_hash
+            )
+            session.add(new_record)
 
-    async def mentors_update_archive(self, date: str, mentor_name: str, schedule: list, schedule_hash: str) -> None:
-        if await self.mentors_schedule_in(date, mentor_name):
-            await self.mentors_update_data(date, mentor_name, schedule, schedule_hash)
+        await session.commit()
+
+    @staticmethod
+    async def update_mentor_schedule(
+        session: AsyncSession, date: str, mentor_name: str, schedule: List[Any], schedule_hash: str
+    ) -> None:
+        """Обновление расписания преподавателей"""
+        # Проверяем существование записи
+        result = await session.execute(
+            select(ScheduleArchiveMentor).where(
+                and_(ScheduleArchiveMentor.date == date, ScheduleArchiveMentor.mentor_name == mentor_name)
+            )
+        )
+        existing = result.scalar_one_or_none()
+
+        schedule_str = str(schedule)
+
+        if existing:
+            # Обновляем существующую запись
+            existing.schedule = schedule_str  # type: ignore
+            existing.schedule_hash = schedule_hash  # type: ignore
         else:
-            await self.mentors_insert_data(date, mentor_name, schedule, schedule_hash)
+            # Создаем новую запись
+            new_record = ScheduleArchiveMentor(
+                date=date, mentor_name=mentor_name, schedule=schedule_str, schedule_hash=schedule_hash
+            )
+            session.add(new_record)
+
+        await session.commit()
 
 
-cipher = Fernet(SECRET_KEY)
+db_manager = DatabaseManager()

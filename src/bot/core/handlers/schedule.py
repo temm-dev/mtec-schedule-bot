@@ -1,4 +1,5 @@
 from aiogram import Dispatcher, F, Router
+from aiogram.enums import ChatType
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
@@ -18,6 +19,8 @@ from utils.markup import (
     mentors_dict,
 )
 
+from bot.services.database import UserRepository
+
 from ..fsm.states import SelectGroupScheduleFSM, SelectMentorScheduleFSM
 from .decorators import event_handler
 
@@ -30,18 +33,20 @@ def register(dp: Dispatcher):
     dp.include_router(router)
 
 
-@router.message(Command("resend_schedule"))
-@router.message(F.text == "📚 Моё расписание")
+@router.message(Command("resend_schedule"), F.chat.type == ChatType.PRIVATE)
+@router.message(F.text == "📚 Моё расписание", F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def resend_schedule_handler(ms: Message, state: FSMContext) -> None:
     message = await ms.answer(checking_schedule_text)
 
     user_id = ms.from_user is not None and ms.from_user.id
 
-    user_status = await container.db_users.get_user_status(user_id)
+    async for session in container.db_manager.get_session():  # type: ignore
+        user_status = await UserRepository.get_user_status(session, user_id)
 
     if user_status == "mentor":
-        mentor_name = await container.db_users.get_mentor_name_by_id(user_id)
+        async for session in container.db_manager.get_session():  # type: ignore
+            mentor_name = await UserRepository.get_mentor_name_by_id(session, user_id)
 
         if mentor_name is None:
             return
@@ -50,19 +55,20 @@ async def resend_schedule_handler(ms: Message, state: FSMContext) -> None:
         await container.bot.delete_message(user_id, message.message_id)
 
     elif user_status == "student":
-        user_group = await container.db_users.get_user_group(user_id)
+        async for session in container.db_manager.get_session():  # type: ignore
+            user_group = await UserRepository.get_user_group(session, user_id)
+
         await schedule_service.send_schedule_by_group(user_id, user_group, "_resend")
         await container.bot.delete_message(user_id, message.message_id)
 
 
-@router.message(F.text == "🔔 Расписание звонков")
-@router.message(F.text == "🕒 Расписание звонков")
+@router.message(F.text == "🕒 Расписание звонков", F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def send_call_schedule_handler(ms: Message, state: FSMContext) -> None:
     await ms.answer_media_group(media_call_schedule_photos)
 
 
-@router.message(F.text == "👩‍🏫 Расписание преподавателя")
+@router.message(F.text == "👩‍🏫 Расписание преподавателя", F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def schedule_mentor(ms: Message, state: FSMContext) -> None:
     message = await ms.answer(schedule_mentor_text, reply_markup=inline_markup_select_mentors_fcs)
@@ -105,7 +111,7 @@ async def schedule_mentor_check(cb: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
 
 
-@router.message(F.text == "👥 Расписание группы")
+@router.message(F.text == "👥 Расписание группы", F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def schedule_group(ms: Message, state: FSMContext) -> None:
     message = await ms.answer(schedule_group_text, reply_markup=inline_markup_select_group)

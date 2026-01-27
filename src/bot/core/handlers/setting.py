@@ -8,6 +8,8 @@ from phrases import change_theme_text, selected_theme_text, settings_help_text, 
 from utils.keyboard import build_settings_keyboard
 from utils.markup import inline_markup_select_theme, media_photo_themes
 
+from bot.services.database import UserRepository
+
 from ..filters.custom_filters import ScheduleStyle, SettingsFilter
 from ..fsm.states import ChangeSettingsFSM, SelectThemeFSM
 from .decorators import event_handler
@@ -23,7 +25,9 @@ def register(dp: Dispatcher):
 @event_handler(admin_check=False)
 async def select_theme_handler(cb: CallbackQuery, state: FSMContext) -> None:
     user_id = cb.from_user is not None and cb.from_user.id
-    user_theme = await container.db_users.get_user_theme(user_id)
+
+    async for session in container.db_manager.get_session():  # type: ignore
+        user_theme = await UserRepository.get_user_theme(session, user_id)
 
     media_group_message = await container.bot.send_media_group(user_id, media_photo_themes)
 
@@ -51,7 +55,8 @@ async def select_theme_callback(cb: CallbackQuery, state: FSMContext) -> None:
     if not user_theme in themes_names:
         return None
 
-    await container.db_users.change_user_theme(user_id, user_theme)
+    async for session in container.db_manager.get_session():  # type: ignore
+        await UserRepository.update_user_theme(session, user_id, user_theme)
 
     data = await state.get_data()
     need_to_delete = data.get("need_to_delete")
@@ -78,7 +83,9 @@ async def select_theme_callback(cb: CallbackQuery, state: FSMContext) -> None:
 async def settings_handler(cb: CallbackQuery, state: FSMContext) -> None:
     user_id = cb.from_user is not None and cb.from_user.id
 
-    user_settings = await container.db_users.get_user_settigs(user_id)
+    async for session in container.db_manager.get_session():  # type: ignore
+        user_settings = await UserRepository.get_user_settings(session, user_id)
+
     keyboard = build_settings_keyboard(user_settings)
 
     await container.bot.send_message(user_id, settings_text)
@@ -98,15 +105,22 @@ async def change_settings(cb: CallbackQuery, state: FSMContext) -> None:
         return
 
     user_id = cb.from_user.id
-    user_settings = await container.db_users.get_user_settigs(user_id)
+
+    async for session in container.db_manager.get_session():  # type: ignore
+        user_settings = await UserRepository.get_user_settings(session, user_id)
+
     message_id = (await state.get_data()).get("message_id")
 
     # Переключаем настройку
     current_value = user_settings.get(user_action)
-    await container.db_users.change_user_settings(user_action, not current_value, user_id)
+
+    async for session in container.db_manager.get_session():  # type: ignore
+        await UserRepository.update_user_setting(session, user_id, user_action, not current_value)
 
     # Обновляем настройки и клавиатуру
-    user_settings = await container.db_users.get_user_settigs(user_id)
+    async for session in container.db_manager.get_session():  # type: ignore
+        user_settings = await UserRepository.get_user_settings(session, user_id)
+
     keyboard = build_settings_keyboard(user_settings)
 
     chat_id = cb.message.chat.id if cb.message is not None else -1
