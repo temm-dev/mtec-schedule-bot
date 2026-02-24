@@ -1,3 +1,7 @@
+# MTEC Schedule Bot - Git Ignore File
+# Optimized for Python 3.13, Docker, and Telegram bot development
+
+# Project specific
 .DS_Store
 tests/
 workspace/
@@ -5,13 +9,19 @@ extras/
 *.db
 secret.key
 temp.py
-.pre-commit-config.yaml
 bot_config.py
+data/
+logs/
+config/
+assets/temp/
+src/static/workspace/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
-*.py[codz]
+*.py[cod]
 *$py.class
+*.pyo
+*.pyd
 
 # C extensions
 *.so
@@ -37,8 +47,6 @@ share/python-wheels/
 MANIFEST
 
 # PyInstaller
-#   Usually these files are written by a python script from a template
-#   before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
 
@@ -65,17 +73,17 @@ cover/
 *.mo
 *.pot
 
-# Django stuff:
+# Django stuff (if used in future)
 *.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# Flask stuff:
+# Flask stuff (if used in future)
 instance/
 .webassets-cache
 
-# Scrapy stuff:
+# Scrapy stuff
 .scrapy
 
 # Sphinx documentation
@@ -93,48 +101,26 @@ profile_default/
 ipython_config.py
 
 # pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+.python-version
 
 # pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-# Pipfile.lock
+Pipfile.lock
 
 # UV
-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-# uv.lock
+uv.lock
 
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
+# poetry (we keep poetry.lock for reproducibility)
 # poetry.lock
-# poetry.toml
+poetry.toml
 
 # pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#   pdm recommends including project-wide configuration in pdm.toml, but excluding .pdm-python.
-#   https://pdm-project.org/en/latest/usage/project/#working-with-version-control
-# pdm.lock
-# pdm.toml
 .pdm-python
 .pdm-build/
 
 # pixi
-#   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
-# pixi.lock
-#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one
-#   in the .venv directory. It is recommended not to include this directory in version control.
 .pixi
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+# PEP 582
 __pypackages__/
 
 # Celery stuff
@@ -160,6 +146,10 @@ activemq-data/
 # Environments
 .env
 .envrc
+.env.local
+.env.development
+.env.test
+.env.production
 .venv
 env/
 venv/
@@ -167,15 +157,55 @@ ENV/
 env.bak/
 venv.bak/
 
-# Spyder project settings
+# IDE files
+.idea/
+.vscode/
 .spyderproject
 .spyproject
-
-# Rope project settings
 .ropeproject
+*.swp
+*.swo
+*~
 
-# mkdocs documentation
-/site
+# OS generated files
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+*.bak
+*.backup
+*.old
+
+# Security files
+*.pem
+*.key
+*.crt
+*.p12
+secrets.*
+config.local.*
+
+# Database files (project specific)
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+
+# Logs (project specific)
+logs/
+*.log
+*.log.*
+
+# Docker (project specific)
+.dockerignore
+docker-compose.override.yml
 
 # mypy
 .mypy_cache/
@@ -191,27 +221,7 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# PyCharm
-#   JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#   be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#   and can be added to the global gitignore or merged into this file.  For a more nuclear
-#   option (not recommended) you can uncomment the following to ignore the entire idea folder.
-# .idea/
-
-# Abstra
-#   Abstra is an AI-powered process automation framework.
-#   Ignore directories containing user credentials, local state, and settings.
-#   Learn more at https://abstra.io/docs
-.abstra/
-
-# Visual Studio Code
-#   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore
-#   that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
-#   and can be added to the global gitignore or merged into this file. However, if you prefer,
-#   you could uncomment the following to ignore the entire vscode folder
-.vscode/
-
-# Ruff stuff:
+# Ruff stuff
 .ruff_cache/
 
 # PyPI configuration file
@@ -224,3 +234,104 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Pre-commit hooks
+.pre-commit-config.yaml
+
+# Local development scripts
+run_local.sh
+start_dev.sh
+debug.py
+
+# Backup and archive files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Node modules (if any frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build artifacts
+build/
+dist/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage
+.grunt
+
+# Bower dependency directory
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons
+build/Release
+
+# Dependency directories
+jspm_packages/
+
+# TypeScript v1 declaration files
+typings/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+
+# parcel-bundler cache
+.cache
+.parcel-cache
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
