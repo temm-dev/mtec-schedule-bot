@@ -1,11 +1,30 @@
+# MTEC Schedule Bot Dockerfile
 FROM python:3.13-slim
 
-RUN mkdir -p /mtec-schedule-bot
-WORKDIR /mtec-schedule-bot
+# Environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-COPY . /mtec-schedule-bot
+# Work directory
+WORKDIR /app
 
-RUN pip install poetry
-RUN poetry --no-root install
+# Install system dependencies and Poetry
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-CMD [ "poetry", "run", "python3", "src/bot/main.py" ]
+# Install dependencies
+RUN pip install -r requirements.txt
+
+# Copy application code
+COPY src/ ./src/
+COPY assets/ ./assets/
+
+# Create non-root user
+RUN useradd -m -s /bin/bash botuser \
+    && chown -R botuser:botuser /app
+USER botuser
+
+# Run the application
+CMD ["python", "src/bot/main.py"]
