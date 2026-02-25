@@ -69,7 +69,7 @@ async def get_memory_usege_callback(cb: CallbackQuery, state: FSMContext) -> Non
 @router.callback_query(GetDBUsersFilter())
 @event_handler()
 async def get_db_users_callback(cb: CallbackQuery, state: FSMContext) -> None:
-    await container.bot.send_document(ADMIN, FSInputFile(path=f"{PATH_DBs}mtec_users.db"))
+    await container.bot.send_document(ADMIN, FSInputFile(path=f"{PATH_DBs}bot_database.db"))
 
 
 @router.callback_query(GetDBHashesFilter())
@@ -161,11 +161,12 @@ async def send_message_user_enter_message(ms: Message, state: FSMContext) -> Non
     data = await state.get_data()
     user_id = data.get("user_id")
 
+    await state.clear()
+
     if not isinstance(user_id, (int, str)):
         return None
 
     await message_sender.send_message_to_user(user_id, message_to_user)
-    await state.clear()
 
 
 @router.callback_query(SendMessageUsersFilter())
@@ -179,6 +180,7 @@ async def send_message_users(cb: CallbackQuery, state: FSMContext) -> None:
 @event_handler(log_event=False, clear_state=False)
 async def send_message_users_enter_message(ms: Message, state: FSMContext) -> None:
     text = str(ms.text).strip()
+    await state.clear()
 
     if text == "/exit":
         await cancel_action_handler(ms, state)
@@ -186,7 +188,6 @@ async def send_message_users_enter_message(ms: Message, state: FSMContext) -> No
 
     message = text
     await message_sender.send_message_to_all_users(message)
-    await state.clear()
 
 
 @router.callback_query(SendMessageGroupFilter())
@@ -236,8 +237,9 @@ async def send_message_group_enter_message(ms: Message, state: FSMContext) -> No
     data = await state.get_data()
     group = data.get("group")
 
+    await state.clear()
+
     if not isinstance(group, str):
         return None
 
     await message_sender.send_message_to_group(group, message_to_group)
-    await state.clear()

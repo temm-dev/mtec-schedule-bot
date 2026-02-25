@@ -8,7 +8,7 @@ from typing import Dict, List, Final
 
 # Settings text mappings (disabled_state, enabled_state)
 SETTINGS_DICT_TEXT: Final[Dict[str, List[str]]] = {
-    "toggle_schedule": ["📆 Рассылка расписания ❌", "📆 Рассылка расписания ✅"],
+    "toggle_schedule": ["📆 Рассылка расписания ✅", "📆 Рассылка расписания ❌"],
     "all_semesters": ["📙 Все семестры ❌", "📙 Все семестры ✅"],
 }
 
