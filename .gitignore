@@ -12,7 +12,7 @@ temp.py
 bot_config.py
 data/
 logs/
-config/
+config/bot_config.py
 assets/temp/
 src/static/workspace/
 
