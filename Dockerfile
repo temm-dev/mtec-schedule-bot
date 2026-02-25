@@ -7,6 +7,7 @@ ENV PYTHONUNBUFFERED=1
 
 # Work directory
 WORKDIR /app
+COPY requirements.txt .
 
 # Install system dependencies and Poetry
 RUN apt-get update && apt-get install -y \
