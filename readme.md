@@ -86,6 +86,10 @@ make docker-stop    # Остановить контейнер
 
 #### Создание криптографического ключа:
 ```python
+# Скачать библиотеку cryptography
+
+# pip install cryptography
+
 from cryptography.fernet import Fernet
 
 # Генерация ключа
@@ -95,7 +99,14 @@ key = Fernet.generate_key()
 print(f"Ваш ключ: {key.decode()}")
 ```
 
-### 1. Добавить данные в конфиг
+### 1. Клонировать проект
+
+```bash
+git clone https://github.com/temm-dev/mtec-schedule-bot.git
+cd mtec-schedule-bot
+```
+
+### 2. Добавить данные в конфиг
 
 ```src/bot/config/bot_config.py```
 ```python
@@ -110,15 +121,11 @@ ADMIN: Final[int] = 000000000
 
 #### С Docker (Рекомендуется)
 ```bash
-git clone https://github.com/temm-dev/mtec-schedule-bot.git
-cd mtec-schedule-bot
 make deploy
 ```
 
 #### Без Docker
 ```bash
-git clone https://github.com/temm-dev/mtec-schedule-bot.git
-cd mtec-schedule-bot
 make install
 make run
 ```
