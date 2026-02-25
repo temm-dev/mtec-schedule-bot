@@ -1,10 +1,19 @@
+"""
+mailing_service.py - Сервис для массовой рассылки сообщений
+
+Содержит класс для организации массовой рассылки сообщений пользователям бота.
+Включает функции отправки сообщений отдельным пользователям, всем пользователям
+и группам студентов с ограничением частоты запросов (rate limiting) для
+предотвращения блокировки со стороны Telegram API.
+"""
+
 from typing import Union
 
 from aiolimiter import AsyncLimiter
 from config.bot_config import ADMIN
 from core.dependencies import container
 
-from bot.services.database import UserRepository
+from services.database import UserRepository
 
 
 class MessageSender:
