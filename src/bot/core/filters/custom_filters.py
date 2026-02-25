@@ -1,3 +1,10 @@
+"""
+Custom filters for callback query processing.
+
+Contains a set of filters for processing callback queries in the bot.
+Filters are used to determine callback data types and access rights (administrator).
+"""
+
 from aiogram.filters import Filter
 from aiogram.types import CallbackQuery
 from config.bot_config import ADMIN
@@ -5,7 +12,17 @@ from config.bot_config import ADMIN
 
 class LegalInformationFilter(Filter):
     async def __call__(self, cb: CallbackQuery) -> bool:
-        return cb.data == "❗ Правовая информация"
+        return cb.data == "⚖️ Правовая информация"
+
+
+class SettingsFilter(Filter):
+    async def __call__(self, cb: CallbackQuery) -> bool:
+        return cb.data == "⚙️ Настройки"
+
+
+class GetMemoryUsageFilter(Filter):
+    async def __call__(self, cb: CallbackQuery) -> bool:
+        return cb.data == "📊 Memory usage" and cb.from_user.id == ADMIN
 
 
 class GetDBUsersFilter(Filter):
@@ -26,11 +43,6 @@ class GetLogsFilter(Filter):
 class GetSupportJournalFilter(Filter):
     async def __call__(self, cb: CallbackQuery) -> bool:
         return cb.data == "support 📄" and cb.from_user.id == ADMIN
-
-
-class GetSupportFilter(Filter):
-    async def __call__(self, cb: CallbackQuery) -> bool:
-        return cb.data == "❓ Помощь" and cb.from_user.id == ADMIN
 
 
 class ScheduleStyle(Filter):

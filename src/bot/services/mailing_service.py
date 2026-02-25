@@ -1,8 +1,18 @@
+"""
+Mailing service for bulk message distribution.
+
+This module contains the MessageSender class for organizing bulk message distribution
+to bot users. It includes functions for sending messages to individual users,
+all users, and student groups with rate limiting to prevent blocking by Telegram API.
+"""
+
 from typing import Union
 
 from aiolimiter import AsyncLimiter
 from config.bot_config import ADMIN
 from core.dependencies import container
+
+from services.database import UserRepository
 
 
 class MessageSender:
@@ -12,31 +22,23 @@ class MessageSender:
     SEND_DELAY = 0.1
 
     def __init__(self) -> None:
-        self.limiter = AsyncLimiter(10, 3)
+        self.limiter = AsyncLimiter(15, 7)
 
     @classmethod
-    async def _send_single_message(
-        cls, user_id: Union[str, int], message: str, report_to_admin: bool = False
-    ) -> bool:
+    async def _send_single_message(cls, user_id: Union[str, int], message: str, report_to_admin: bool = False) -> bool:
         """The method of sending a single message"""
         try:
-            await container.bot.send_message(
-                user_id, message, parse_mode=cls.PARSE_MODE
-            )
+            await container.bot.send_message(user_id, message, parse_mode=cls.PARSE_MODE)
 
             if report_to_admin:
-                await container.bot.send_message(
-                    ADMIN, f"{user_id} - Сообщение доставлено ✅"
-                )
+                await container.bot.send_message(ADMIN, f"{user_id} - Сообщение доставлено ✅")
 
             print(f"{user_id} - Сообщение доставлено ✅")
             return True
 
         except Exception as e:
             if report_to_admin:
-                await container.bot.send_message(
-                    ADMIN, f"{user_id} - Ошибка доставки ❌\n{str(e)}"
-                )
+                await container.bot.send_message(ADMIN, f"{user_id} - Ошибка доставки ❌\n{str(e)}")
             print(f"{user_id} - Сообщение не доставлено ❌\n{e}")
             return False
 
@@ -47,7 +49,9 @@ class MessageSender:
 
     async def send_message_to_all_users(self, message: str) -> None:
         """A method for sending a message to all users"""
-        users_id = await container.db_users.get_users()
+        async for session in container.db_manager.get_session():  # type: ignore
+            users_id = await UserRepository.get_all_users(session)
+
         failed_users = []
 
         for user_id in users_id:
@@ -57,13 +61,12 @@ class MessageSender:
                     failed_users.append(user_id)
 
         if failed_users:
-            print(
-                f"Сообщение не доставлено {len(failed_users)} пользователям\n{failed_users}"
-            )
+            print(f"Сообщение не доставлено {len(failed_users)} пользователям\n{failed_users}")
 
     async def send_message_to_group(self, group: str, message: str) -> None:
         """A method for sending a message to a group of users"""
-        users_id = await container.db_users.get_users_by_group(group)
+        async for session in container.db_manager.get_session():  # type: ignore
+            users_id = await UserRepository.get_users_by_group(session, group)
         failed_users = []
 
         for user_id in users_id:
@@ -73,6 +76,4 @@ class MessageSender:
                     failed_users.append(user_id)
 
         if failed_users:
-            print(
-                f"Сообщение не доставлено {len(failed_users)} пользователям группы\n{failed_users}"
-            )
+            print(f"Сообщение не доставлено {len(failed_users)} пользователям группы\n{failed_users}")

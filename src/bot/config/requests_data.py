@@ -1,9 +1,20 @@
-requets_url = "https://mtec.by/wp-admin/admin-ajax.php"
-ejournal_login_url = "http://office.mtec.by/"
-ejournal_profile_url = "http://office.mtec.by/profile.php"
-ejournal_profile_period_url = "http://office.mtec.by/profile.php?period="
+"""HTTP request configuration module for MTEC schedule bot.
 
-base_request_headers = {
+This module contains URLs, headers, and data for all HTTP requests to external APIs.
+Includes settings for fetching schedule data from the college website and accessing
+the electronic journal system.
+"""
+
+from typing import Dict, Final
+
+# API endpoints
+REQUESTS_URL: Final[str] = "https://mtec.by/wp-admin/admin-ajax.php"
+EJOURNAL_LOGIN_URL: Final[str] = "http://office.mtec.by/"
+EJOURNAL_PROFILE_URL: Final[str] = "http://office.mtec.by/profile.php"
+EJOURNAL_PROFILE_PERIOD_URL: Final[str] = "http://office.mtec.by/profile.php?period="
+
+# HTTP headers for schedule requests
+BASE_REQUEST_HEADERS: Final[Dict[str, str]] = {
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
     "Accept": "*/*",
     "Sec-Fetch-Site": "same-origin",
@@ -19,7 +30,8 @@ base_request_headers = {
     "X-Requested-With": "XMLHttpRequest",
 }
 
-ejournal_headers = {
+# HTTP headers for e-journal requests
+EJOURNAL_HEADERS: Final[Dict[str, str]] = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Upgrade-Insecure-Requests": "1",
     "Host": "office.mtec.by",
@@ -29,15 +41,21 @@ ejournal_headers = {
     "Connection": "keep-alive",
 }
 
-
-request_data = {
+# Request data for student schedule
+REQUEST_DATA: Final[Dict[str, str]] = {
     "MIME Type": "application/x-www-form-urlencoded; charset=UTF-8",
     "action": "getSearchParameters",
     "rtype": "stds",
 }
 
-request_data_mentors = {
+# Request data for mentor schedule
+REQUEST_DATA_MENTORS: Final[Dict[str, str]] = {
     "MIME Type": "application/x-www-form-urlencoded; charset=UTF-8",
     "action": "getSearchParameters",
     "rtype": "prep",
 }
+
+# Request actions
+ACTION_GET_SEARCH_PARAMETERS: Final[str] = "getSearchParameters"
+REQUEST_TYPE_STUDENTS: Final[str] = "stds"
+REQUEST_TYPE_MENTORS: Final[str] = "prep"

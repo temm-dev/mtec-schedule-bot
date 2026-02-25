@@ -1,3 +1,11 @@
+"""
+FSM states for user dialog management.
+
+Contains state classes for managing bot dialog scenarios.
+Each state group corresponds to a specific scenario (group selection,
+theme setup, electronic journal work, administration, etc.).
+"""
+
 from aiogram.fsm.state import State, StatesGroup
 
 
@@ -5,19 +13,29 @@ class SelectStatusFSM(StatesGroup):
     select_status = State()
 
 
-class SelectMentorFioFSM(StatesGroup):
-    select_mentor_fio = State()
+class SelectMentorNameFSM(StatesGroup):
+    select_mentor_name = State()
 
 
 class SelectGroupFSM(StatesGroup):
     select_group = State()
 
 
+class ChatSelectMentorNameFSM(StatesGroup):
+    select_mentor_name = State()
+
+
+class ChatSelectGroupFSM(StatesGroup):
+    select_group = State()
+
+
 class SelectGroupScheduleFSM(StatesGroup):
     select_group_schedule = State()
 
+
 class SelectMentorScheduleFSM(StatesGroup):
     select_mentor_schedule = State()
+
 
 class SupportFSM(StatesGroup):
     support = State()

@@ -1,13 +1,20 @@
-<h1 align="center">📅 MTEC Schedule Bot</h1>
+<div align="center">
+  <h1>📅 MTEC Schedule Bot</h1>
+</div>
 
-<p align="center">
-  <img src="assets/mtec-black-back.png" alt="Project Demo" width="700">
-</p>
+<div align="center">
+  <strong>Неофициальный Telegram бот для отслеживания расписания МТЭК</strong>
+</div>
 
+<br>
 
-<p align="center">
+<div align="center">
+  <img src="assets/mtec-black-back.png" alt="MTEC Schedule Bot" width="550">
+</div>
+
+<div align="center">
   <a href="https://python.org/">
-    <img src="https://img.shields.io/badge/Python-3.13-blue?logo=python&logoColor=white" alt="Python 3.13">
+    <img src="https://img.shields.io/badge/Python-3.13+-blue?logo=python&logoColor=white" alt="Python 3.13+">
   </a>
   <a href="https://aiogram.dev/">
     <img src="https://img.shields.io/badge/Aiogram-3.0-green?logo=telegram&logoColor=white" alt="Aiogram 3">
@@ -15,61 +22,117 @@
   <a href="https://www.docker.com/">
     <img src="https://img.shields.io/badge/Docker-✓-blue?logo=docker&logoColor=white" alt="Docker">
   </a>
-</p>
+  <a href="https://github.com/temm-dev/mtec-schedule-bot">
+    <img src="https://img.shields.io/badge/License-MIT-green?logo=github&logoColor=white" alt="MIT License">
+  </a>
+</div>
 
-<p align="center">
-  <strong>Unofficial Telegram bot for college schedule tracking</strong><br>
-  <i>Created by student for students</i>
-</p>
+## ✨ Возможности
 
+- 📲 **Автоматическое расписание** - получайте обновления сразу
+- <strike>🔔 **Уведомления** - узнавайте об изменениях первыми</strike> <b><u># Не доступно</u></b>
+- 📖 **Электронный журнал** - оценки и посещаемость
+- 👥 **Расписание группы/преподавателя** - получайте расписание групп и преподавателей
+- ⚙️ **Настройки** - персонализируйте бота
 
-## 💡 Project idea
+## 🤖 Команды бота
 
-A telegram bot for automatically tracking college class schedules. Main functions:
+| Команда | Описание |
+|---------|----------|
+| `/start` | Запуск бота и главное меню |
+| `/schedule` | Отправить расписание |
+| `/journal` | Электронный журнал |
+| `/group_schedule` | Расписание группы |
+| `/mentor_schedule` | Расписание преподавателя |
+| `/settings` | Настройки бота |
+| `/change_journal_info` | Изменить данные электронного журнала |
+| `/delete_journal_info` | Удалить данные электронного журнала |
+| `/restart` | Перезапуск бота |
+| `/exit` | Отменить действие |
 
-- **Automatic distribution** of the schedule when it appears
-- **Notifications of changes** in the schedule (substitutions, cancellations of pairs)
-- **Additional features** for students:
-  - Call schedule
-  - Electronic journal
-  - A friend's schedule
+## 🛠️ Команды для разработки
 
-## ⚙️ Technology stack
-
-### **Backend**
-- Python 3.13
-- Aiogram 3 (asynchronous framework for Telegram bots)
-- BeautifulSoup4 (HTML parsing)
-- Asyncio/Aiohttp/Aiofiles (asynchronous operations)
-
-### **Databases**
-- SQLite3 (main data warehouse)
-
-### **Infrastructure**
-- Docker (application containerization)
-
-## 🚀 Quick Start
-
-### Preliminary requirements
-- Python 3.13
-- Docker (optional)
-- Telegram-bot token ([@BotFather](https://t.me/BotFather))
-- SECRET_KEY to encrypt the database
-- ADMIN_ID for the admin panel
-
-### Installation
 ```bash
-# Clone the repository
-git clone https://github.com/temm-dev/mtec-schedule-bot.git
-cd mtec-schedule-bot
-
-# Install dependencies
-poetry install
-
-# Launch
-python src/bot/main.py
+make install    # Установить зависимости
+make run        # Запустить бота
+make format     # Форматировать код
+make lint       # Проверить код
 ```
 
-<br>
+## 🐳 Docker команды
 
-> **Have a nice day!** 🍀
+```bash
+make docker-build   # Собрать образ
+make docker-run     # Запустить контейнер
+make docker-stop    # Остановить контейнер
+```
+
+## 📋 Что нужно
+
+- Python 3.13+
+- Docker (опционально)
+- Токен Telegram бота
+- ID Telegram администратора
+- Криптографический ключ для шифрования данных
+
+## 🔧 Шаги настройки бота
+
+
+### 0. Получить необходимые данные
+
+- Токен Telegram бота [# Как получить токен?](https://botifi.me/ru/help/telegram-create-bot/)
+- ID Telegram администратора [# Как получить ID?](https://t.me/userinfobot)
+- Криптографический ключ
+
+#### Создание криптографического ключа:
+```python
+from cryptography.fernet import Fernet
+
+# Генерация ключа
+key = Fernet.generate_key()
+
+# Вывод ключа (выглядит как набор случайных байтов в base64)
+print(f"Ваш ключ: {key.decode()}")
+```
+
+### 1. Добавить данные в конфиг
+
+```src/bot/config/bot_config.py```
+```python
+TOKEN: Final[str] = "токен"
+
+SECRET_KEY: Final[str] = "ключ"
+
+ADMIN: Final[int] = 000000000
+```
+
+### 2. Запустить бота
+
+#### С Docker (Рекомендуется)
+```bash
+git clone https://github.com/temm-dev/mtec-schedule-bot.git
+cd mtec-schedule-bot
+make deploy
+```
+
+#### Без Docker
+```bash
+git clone https://github.com/temm-dev/mtec-schedule-bot.git
+cd mtec-schedule-bot
+make install
+make run
+```
+
+## 🏗️ Технологии
+
+- **Python 3.13**
+- **Aiogram 3**
+- **SQLAlchemy**
+- **Docker**
+
+---
+
+<div align="center">
+  Сделано с ❤️ для студентов МТЭК<br>
+  <a href="https://github.com/temm-dev">temm-dev</a>
+</div>

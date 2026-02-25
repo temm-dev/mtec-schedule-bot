@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  mtec-schedule-bot:
+    build: .
+    image: mtec-schedule-bot:latest
+    container_name: mtec-schedule-bot
+    restart: unless-stopped
+    
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=Europe/Moscow
+    
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
