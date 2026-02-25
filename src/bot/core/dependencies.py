@@ -1,7 +1,14 @@
+"""
+Dependency injection container for managing global bot objects.
+
+This module contains a container for storing and accessing global bot objects
+and the database manager. It provides centralized dependency management
+with lazy initialization.
+"""
+
 from aiogram import Bot
 
-from bot.services.database import DatabaseManager
-
+from services.database import DatabaseManager
 
 class Container:
     _bot: Bot | None = None
