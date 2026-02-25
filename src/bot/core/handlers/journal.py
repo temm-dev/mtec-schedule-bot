@@ -1,8 +1,19 @@
+"""E-journal handlers for MTEC schedule bot.
+
+This module contains handlers for managing electronic journal access: 
+credential input, saving and deleting login information, and downloading 
+grade journals. Includes scenarios for initial setup, modification, 
+and deletion of account credentials.
+"""
+
+from typing import Optional
+
 from aiogram import Dispatcher, F, Router
 from aiogram.enums import ChatType
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
+
 from core.dependencies import container
 from phrases import (
     change_data_text,
@@ -14,29 +25,47 @@ from phrases import (
     no_data_text,
 )
 from services.journal_service import send_ejournal_file
-
-from bot.services.database import UserRepository
-
+from services.database import UserRepository
 from ..fsm.states import EJournalFSM
 from .common import cancel_action_handler
 from .decorators import event_handler
 
+
 router = Router()
 
 
-def register(dp: Dispatcher):
+def register(dp: Dispatcher) -> None:
+    """Register e-journal handlers with the dispatcher.
+    
+    Args:
+        dp: The aiogram dispatcher instance.
+    """
     dp.include_router(router)
 
 
+@router.message(Command("journal"), F.chat.type == ChatType.PRIVATE)
 @router.message(F.text == "📖 Электронный журнал", F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def ejournal_handler(ms: Message, state: FSMContext) -> None:
-    user_id = ms.from_user is not None and ms.from_user.id
+    """Handle e-journal access requests.
+    
+    Checks for existing credentials and either sends the journal file
+    or prompts for username input.
+    
+    Args:
+        ms: E-journal command message.
+        state: FSM context for state management.
+    """
+    if not ms.from_user:
+        return
 
-    async for session in container.db_manager.get_session():  # type: ignore
+    user_id = ms.from_user.id
+
+    # Check for existing credentials
+    async for session in container.db_manager.get_session():
         user_info: list = await UserRepository.get_user_ejournal_info(session, user_id)
 
-    if not user_info == []:
+    if user_info:
         await send_ejournal_file(user_id)
     else:
         await container.bot.send_message(user_id, no_data_text, parse_mode="HTML")
@@ -47,33 +76,58 @@ async def ejournal_handler(ms: Message, state: FSMContext) -> None:
 @router.message(EJournalFSM.enter_username, F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False, clear_state=False)
 async def ejournal_enter_name(ms: Message, state: FSMContext) -> None:
-    text = str(ms.text).strip()
+    """Process username input for e-journal credentials.
+    
+    Validates username input and transitions to password entry state.
+    
+    Args:
+        ms: Username input message.
+        state: FSM context for state management.
+    """
+    if not isinstance(ms.text, str):
+        return
 
-    if text == "/exit":
+    username = ms.text.strip()
+
+    # Handle exit command
+    if username == "/exit":
         await cancel_action_handler(ms, state)
         return
 
-    username = text
+    # Store username and prompt for password
     await state.update_data(username=username)
-
     await ms.answer(enter_password_text)
     await state.set_state(EJournalFSM.enter_password)
 
 
 @router.message(EJournalFSM.enter_password, F.chat.type == ChatType.PRIVATE)
+@event_handler(admin_check=False, clear_state=False)
 async def ejournal_enter_password(ms: Message, state: FSMContext) -> None:
-    text = str(ms.text).strip()
+    """Process password input for e-journal credentials.
+    
+    Validates password input, saves credentials, and sends journal file.
+    
+    Args:
+        ms: Password input message.
+        state: FSM context for state management.
+    """
+    if not isinstance(ms.text, str) or not ms.from_user:
+        return
 
-    if text == "/exit":
+    password = ms.text.strip()
+
+    # Handle exit command
+    if password == "/exit":
         await cancel_action_handler(ms, state)
         return
 
-    data = await state.get_data()
-    username = data.get("username")
-    password = text
+    # Get stored username
+    state_data = await state.get_data()
+    username = state_data.get("username")
 
-    user_id = ms.from_user is not None and ms.from_user.id
+    user_id = ms.from_user.id
 
+    # Validate credentials
     if not username or not password:
         await ms.answer(incorrectly_entered_data_text, parse_mode="HTML")
         await ms.answer(
@@ -83,29 +137,51 @@ async def ejournal_enter_password(ms: Message, state: FSMContext) -> None:
         await state.set_state(EJournalFSM.enter_username)
         return
 
-    async for session in container.db_manager.get_session():  # type: ignore
+    # Save credentials to database
+    async for session in container.db_manager.get_session():
         await UserRepository.update_ejournal_info(session, user_id, username, password)
 
+    # Send confirmation and journal file
     await ms.answer(correctly_entered_data_text, parse_mode="HTML")
     await send_ejournal_file(user_id)
 
     await state.clear()
 
 
-@router.message(Command("change_ejournal_info"), F.chat.type == ChatType.PRIVATE)
+@router.message(Command("change_journal_info"), F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def change_ejournal_info_handler(ms: Message, state: FSMContext) -> None:
+    """Handle e-journal credential change requests.
+    
+    Initiates the credential change process by prompting for new username.
+    
+    Args:
+        ms: Change credentials command message.
+        state: FSM context for state management.
+    """
     await ms.answer(change_data_text, parse_mode="HTML")
     await ms.answer(enter_fio_text)
     await state.set_state(EJournalFSM.enter_username)
 
 
-@router.message(Command("delete_ejournal_info"), F.chat.type == ChatType.PRIVATE)
+@router.message(Command("delete_journal_info"), F.chat.type == ChatType.PRIVATE)
 @event_handler(admin_check=False)
 async def delete_ejournal_info_handler(ms: Message, state: FSMContext) -> None:
-    user_id = ms.from_user is not None and ms.from_user.id
+    """Handle e-journal credential deletion requests.
+    
+    Removes stored credentials from the database.
+    
+    Args:
+        ms: Delete credentials command message.
+        state: FSM context for state management.
+    """
+    if not ms.from_user:
+        return
 
-    async for session in container.db_manager.get_session():  # type: ignore
+    user_id = ms.from_user.id
+
+    # Delete credentials from database
+    async for session in container.db_manager.get_session():
         await UserRepository.delete_ejournal_info(session, user_id)
 
     await ms.answer(deleted_user_ejournal_info_text)
