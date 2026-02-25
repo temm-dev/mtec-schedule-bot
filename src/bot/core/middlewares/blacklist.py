@@ -1,3 +1,11 @@
+"""
+Blacklist middleware for user access control.
+
+Checks user ID against the blacklist before processing messages.
+If a user is found in the blacklist, their messages are blocked
+and not processed further.
+"""
+
 from aiogram.dispatcher.middlewares.base import BaseMiddleware
 from aiogram.types import Message
 from config.paths import WORKSPACE

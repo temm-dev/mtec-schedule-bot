@@ -1,3 +1,10 @@
+"""
+Custom filters for callback query processing.
+
+Contains a set of filters for processing callback queries in the bot.
+Filters are used to determine callback data types and access rights (administrator).
+"""
+
 from aiogram.filters import Filter
 from aiogram.types import CallbackQuery
 from config.bot_config import ADMIN

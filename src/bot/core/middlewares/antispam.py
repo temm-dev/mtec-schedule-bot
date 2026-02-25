@@ -1,3 +1,12 @@
+"""
+Anti-spam middleware for flood and spam protection.
+
+This module contains middleware for rate limiting and spam prevention in the bot.
+It tracks the number of user messages within a time interval, detects repeated
+messages and frequent link sending. Violations result in warnings, while multiple
+violations lead to temporary blocking.
+"""
+
 import time
 from collections import defaultdict
 from datetime import datetime

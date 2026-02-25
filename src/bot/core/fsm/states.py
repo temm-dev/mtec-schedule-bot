@@ -1,3 +1,11 @@
+"""
+FSM states for user dialog management.
+
+Contains state classes for managing bot dialog scenarios.
+Each state group corresponds to a specific scenario (group selection,
+theme setup, electronic journal work, administration, etc.).
+"""
+
 from aiogram.fsm.state import State, StatesGroup
 
 

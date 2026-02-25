@@ -1,3 +1,11 @@
+"""
+Admin panel command handlers.
+
+Contains handlers for administrative functions: user blocking, message broadcasting,
+log retrieval, and statistics. Available only to administrators.
+Includes functions for blacklist management, database operations, and mass notifications.
+"""
+
 from aiogram import Dispatcher, F, Router
 from aiogram.enums import ChatType
 from aiogram.fsm.context import FSMContext
@@ -17,10 +25,10 @@ from phrases import (
     user_in_blacklist_text,
 )
 from services.mailing_service import MessageSender
-from utils.markup import inline_markup_admin_panel_tools, inline_markup_select_group
+from utils.markup import inline_markup_admin_panel_tools, _inline_markup_select_group
 from utils.utils import get_memory_info
 
-from bot.services.database import UserRepository
+from services.database import UserRepository
 
 from ..filters.custom_filters import (
     BlockUserFilter,
@@ -187,7 +195,7 @@ async def send_message_group(cb: CallbackQuery, state: FSMContext) -> None:
     await container.bot.send_message(
         ADMIN,
         send_message_group_text,
-        reply_markup=inline_markup_select_group,
+        reply_markup=_inline_markup_select_group,
         parse_mode="HTML",
     )
     await state.set_state(SendMessageGroupFSM.send_message_select_group)
@@ -201,7 +209,7 @@ async def send_message_group_select_group(cb: CallbackQuery, state: FSMContext) 
     if not isinstance(group, str):
         return
 
-    async for session in container.db_manager.get_session():  # type: ignore
+    async for session in container.db_manager.get_session():
         users_id = await UserRepository.get_users_by_group(session, group)
 
     if not users_id:
