@@ -1,10 +1,9 @@
 """
-mailing_service.py - Сервис для массовой рассылки сообщений
+Mailing service for bulk message distribution.
 
-Содержит класс для организации массовой рассылки сообщений пользователям бота.
-Включает функции отправки сообщений отдельным пользователям, всем пользователям
-и группам студентов с ограничением частоты запросов (rate limiting) для
-предотвращения блокировки со стороны Telegram API.
+This module contains the MessageSender class for organizing bulk message distribution
+to bot users. It includes functions for sending messages to individual users,
+all users, and student groups with rate limiting to prevent blocking by Telegram API.
 """
 
 from typing import Union
